@@ -601,14 +601,15 @@ impl Expr for XorExpr {
 
 
 impl FuncCall {
-    pub fn new(p: &str, n: &str, a: Option<Vec<Box<Expr>>>) -> Self {
+    pub fn new(p: &str, n: &str, a: Vec<Box<Expr>>) -> Self {
         FuncCall {
             package: p.to_string(),
             name: n.to_string(),
-            args: match a {
+            /*args: match a {
                 Some(v) => v,
                 None => Vec::new(),
-            },
+            },*/
+            args: a,
         }
     }
 }

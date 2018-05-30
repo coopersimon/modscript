@@ -44,12 +44,13 @@ pub struct ReturnStat {
 // IMPLS
 
 impl ScopeStat {
-    pub fn new(c: Option<Vec<Box<Statement>>>) -> Self {
+    pub fn new(c: Vec<Box<Statement>>) -> Self {
         ScopeStat {
-            code: match c{
+            /*code: match c{
                 Some(c) => c,
                 None => Vec::new(),
-            },
+            },*/
+            code: c,
         }
     }
 }
