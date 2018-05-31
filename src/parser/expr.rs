@@ -10,6 +10,24 @@ use nom::{IResult, Needed, Err, ErrorKind, Context};
 
 type ExprRes<'a> = IResult<&'a [Token], Box<Expr>>;
 
+macro_rules! op_match {
+    ($input:ident, $mat:ident, $first:expr, $ast:path) => {
+        match $mat(&$input[1..]) {
+            Ok((ir, expr)) => {
+                if ir.len() < 1 {
+                    Err(Err::Incomplete(Needed::Size(1)))
+                } else { match ir[0] {
+                    Token::SemiColon |
+                    Token::RPar |
+                    Token::Comma => Ok((ir, Box::new($ast($first,expr)))),
+                    _ => p_op(Box::new($ast($first,expr)), ir),
+                }}
+            },
+            e => e,
+        }
+    };
+}
+
 /*pub fn p_expr(input: &[Token]) -> ExprRes {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
@@ -66,58 +84,10 @@ fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
-        Token::Times => match p_atom(&input[1..]) {
-            Ok((ir, expr)) => {
-                if ir.len() < 1 {
-                    Err(Err::Incomplete(Needed::Size(1)))
-                } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::Comma => Ok((ir, Box::new(MulExpr::new(first,expr)))),
-                    _ => p_op(Box::new(MulExpr::new(first,expr)), ir),
-                }}
-            },
-            e => e,
-        },
-        Token::Divide => match p_atom(&input[1..]) {
-            Ok((ir, expr)) => {
-                if ir.len() < 1 {
-                    Err(Err::Incomplete(Needed::Size(1)))
-                } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::Comma => Ok((ir, Box::new(DivExpr::new(first,expr)))),
-                    _ => p_op(Box::new(DivExpr::new(first,expr)), ir),
-                }}
-            },
-            e => e,
-        },
-        Token::Plus => match p_mul(&input[1..]) {
-            Ok((ir, expr)) => {
-                if ir.len() < 1 {
-                    Err(Err::Incomplete(Needed::Size(1)))
-                } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::Comma => Ok((ir, Box::new(AddExpr::new(first,expr)))),
-                    _ => p_op(Box::new(AddExpr::new(first,expr)), ir),
-                }}
-            },
-            e => e,
-        },
-        Token::Minus => match p_mul(&input[1..]) {
-            Ok((ir, expr)) => {
-                if ir.len() < 1 {
-                    Err(Err::Incomplete(Needed::Size(1)))
-                } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::Comma => Ok((ir, Box::new(SubExpr::new(first,expr)))),
-                    _ => p_op(Box::new(SubExpr::new(first,expr)), ir),
-                }}
-            },
-            e => e,
-        },
+        Token::Times => op_match!(input, p_atom, first, MulExpr::new),
+        Token::Divide => op_match!(input, p_atom, first, DivExpr::new),
+        Token::Plus => op_match!(input, p_mul, first, AddExpr::new),
+        Token::Minus => op_match!(input, p_mul, first, SubExpr::new),
         _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(101)))),
     }}
 }
@@ -198,32 +168,8 @@ fn p_mul<'a>(input: &'a [Token]) -> ExprRes<'a> {
             if ir.len() < 1 {
                 Err(Err::Incomplete(Needed::Size(1)))
             } else { match ir[0] {
-                Token::Times => match p_atom(&ir[1..]) {
-                    Ok((ir, expr)) => {
-                        if ir.len() < 1 {
-                            Err(Err::Incomplete(Needed::Size(1)))
-                        } else { match ir[0] {
-                            Token::SemiColon |
-                            Token::RPar |
-                            Token::Comma => Ok((ir, Box::new(MulExpr::new(first,expr)))),
-                            _ => p_op(Box::new(MulExpr::new(first,expr)), ir),
-                        }}
-                    },
-                    e => e,
-                },
-                Token::Divide => match p_atom(&ir[1..]) {
-                    Ok((ir, expr)) => {
-                        if ir.len() < 1 {
-                            Err(Err::Incomplete(Needed::Size(1)))
-                        } else { match ir[0] {
-                            Token::SemiColon |
-                            Token::RPar |
-                            Token::Comma => Ok((ir, Box::new(DivExpr::new(first,expr)))),
-                            _ => p_op(Box::new(DivExpr::new(first,expr)), ir),
-                        }}
-                    },
-                    e => e,
-                },
+                Token::Times => op_match!(ir, p_atom, first, MulExpr::new),
+                Token::Divide => op_match!(ir, p_atom, first, DivExpr::new),
                 _ => Ok((ir,first)),
             }}
         },
