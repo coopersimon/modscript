@@ -1,7 +1,6 @@
 use super::Token;
 
-use nom::{multispace, alphanumeric, is_alphanumeric, alpha, double_s, is_digit, digit};
-use nom::IResult;
+use nom::{multispace, alphanumeric, alpha, digit};
 
 pub fn tokenise(input: &str) -> Result<Vec<Token>, String> {
     match p_token_list(input) {
@@ -18,6 +17,7 @@ const RETURN: &'static str = "return";
 const FOR: &'static str = "for";
 const WHILE: &'static str = "while";
 const IF: &'static str = "if";
+const ELIF: &'static str = "elif";
 const ELSE: &'static str = "else";
 // continue
 // break
@@ -35,10 +35,17 @@ named!(p_token_list<&str, Vec<Token> >,
 named!(p_token<&str, Token>,
     //ws?
     do_parse!(
+        many0!(
+            do_parse!(
+                alt_complete!(p_comment)        >>
+                opt!(alt_complete!(multispace)) >>
+                (0)
+            )
+        )                               >>
         t: alt!(
             p_punctuators   |
             p_operators     |
-            //p_float_lit     |
+            p_float_lit     |
             p_int_lit       |
             p_str_lit       |
             p_keywords      |
@@ -49,6 +56,23 @@ named!(p_token<&str, Token>,
     )
 );
 
+named!(p_comment<&str, usize>,
+    alt!(
+        do_parse!(
+            tag!("//")          >>
+            take_until!("\n")   >>
+            tag!("\n")          >>
+            (0)
+        )   |
+        do_parse!(
+            tag!("/*")          >>
+            take_until!("*/")   >>
+            tag!("*/")          >>
+            (0)
+        )
+    )
+);
+
 named!(p_int_lit<&str, Token>,
     do_parse!(
         i: digit >>
@@ -56,17 +80,12 @@ named!(p_int_lit<&str, Token>,
     )
 );
 
-named!(p_signed_int<&str, &str>,
-    recognize!(preceded!(
-        opt!(tag!("-")),
-        take_while1!(|c: char| c.is_digit(10))
-    ))
-);
-
 named!(p_float_lit<&str, Token>,
     do_parse!(
-        f: double_s >>
-        (Token::FloatLit(f))
+        i: opt!(digit)  >>
+        tag!(".")       >>
+        f: opt!(digit)  >>
+        (make_float(i,f).unwrap())
     )
 );
 
@@ -137,6 +156,7 @@ named!(p_keywords<&str, Token>,
             value!(Token::Func, tag!(FUNC))     |
             value!(Token::Return, tag!(RETURN)) |
             value!(Token::If, tag!(IF))         |
+            value!(Token::Elif, tag!(ELIF))     |
             value!(Token::Else, tag!(ELSE))     |
             value!(Token::While, tag!(WHILE))   |
             value!(Token::True, tag!(TRUE))     |
@@ -157,17 +177,6 @@ named!(p_id<&str, Token>,
     )
 );
 
-/*fn str_to_int(s: &[u8]) -> Result<i64, String> {
-    use std::str;
-    match str::from_utf8(s) {
-        Ok(i_str) => match i_str.parse::<i64>() {
-            Ok(i) => Ok(i),
-            Err(_) => Err(format!("Not an integer: {}", i_str)),
-        },
-        Err(_) => Err(format!("Incorrectly parsed input string.")),
-    }
-}*/
-
 fn str_to_int(s: &str) -> Result<i64, String> {
     match s.parse::<i64>() {
         Ok(i) => Ok(i),
@@ -175,10 +184,49 @@ fn str_to_int(s: &str) -> Result<i64, String> {
     }
 }
 
+fn make_float(i: Option<&str>, f: Option<&str>) -> Result<Token, String> {
+    //use std::f64;
+    match (i,f) {
+        (Some(i), Some(f)) => {
+            let ten: f64 = 10.0;
+            let div = ten.powi(f.len() as i32);
+            match (str_to_int(i), str_to_int(f)) {
+                (Ok(i), Ok(f)) => Ok(Token::FloatLit((i as f64) + (f as f64) / div)),
+                (_,_) => Err(format!("Not a float: {}.{}", i, f)),
+            }
+        },
+        (Some(i), None) => match str_to_int(i) {
+            Ok(i) => Ok(Token::FloatLit(i as f64)),
+            _ => Err(format!("Not a float: {}.", i)),
+        },
+        (None, Some(f)) => {
+            let ten: f64 = 10.0;
+            let div = ten.powi(f.len() as i32);
+            match str_to_int(f) {
+                Ok(f) => Ok(Token::FloatLit((f as f64) / div)),
+                _ => Err(format!("Not a float: .{}", f)),
+            }
+        },
+        (None, None) => Ok(Token::Dot),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use parser::Token;
+
+    #[test]
+    fn tokenise_numbers() {
+        let input = "1.1, 203, .15, 22., 50;";
+        let expect = vec![Token::FloatLit(1.1), Token::Comma,
+                          Token::IntLit(203), Token::Comma,
+                          Token::FloatLit(0.15), Token::Comma,
+                          Token::FloatLit(22.0), Token::Comma,
+                          Token::IntLit(50), Token::SemiColon];
+
+        assert_eq!(tokenise(input).unwrap(), expect);
+    }
 
     #[test]
     fn tokenise_function() {

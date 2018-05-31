@@ -4,7 +4,6 @@ use super::Token;
 use parser::parser::get_package_ref;
 
 use ast::*;
-use runtime::Value;
 
 use nom::{IResult, Needed, Err, ErrorKind, Context};
 
@@ -19,6 +18,7 @@ macro_rules! op_match {
                 } else { match ir[0] {
                     Token::SemiColon |
                     Token::RPar |
+                    Token::LBrac |
                     Token::Comma => Ok((ir, Box::new($ast($first,expr)))),
                     _ => p_op(Box::new($ast($first,expr)), ir),
                 }}
@@ -38,6 +38,7 @@ pub fn p_expr<'a>(input: &'a [Token]) -> ExprRes<'a> {
             } else { match ir[0] {
                 Token::SemiColon |
                 Token::RPar |
+                Token::LBrac |
                 Token::Comma => Ok((ir,expr)),
                 _ => p_op(expr, ir),
             }}
@@ -70,15 +71,26 @@ fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
     }}
 }
 
+fn p_path<'a>(package: &String, input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 2 {
+        Err(Err::Incomplete(Needed::Size(2)))
+    } else { match input[0] {
+        // TODO: check for fn call vs variable
+        Token::Id(ref n) => p_func_call(n, package, &input[1..]),
+        _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(101)))),
+    }}
+}
+
 // Assuming input[0] has already been matched as LPar
-fn p_func_call<'a>(name: &String, input: &'a [Token]) -> ExprRes<'a> {
+fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 3 {
         Err(Err::Incomplete(Needed::Size(3)))
     } else { match (&input[1], &input[2]) {
         (&Token::RPar, &Token::SemiColon) |
         (&Token::RPar, &Token::RPar) |
-        (&Token::RPar, &Token::Comma) => Ok((&input[2..], Box::new(FuncCall::new(&get_package_ref(None),name,Vec::new())))),
-        (&Token::RPar, _) => p_op(Box::new(FuncCall::new(&get_package_ref(None),name,Vec::new())),&input[2..]),
+        (&Token::RPar, &Token::LBrac) |
+        (&Token::RPar, &Token::Comma) => Ok((&input[2..], Box::new(FuncCall::new(package,name,Vec::new())))),
+        (&Token::RPar, _) => p_op(Box::new(FuncCall::new(package,name,Vec::new())),&input[2..]),
         (_,_) => match p_arg_list(&input[0..], Vec::new()) {
             Ok((ir,args)) => {
                 if ir.len() < 1 {
@@ -86,8 +98,9 @@ fn p_func_call<'a>(name: &String, input: &'a [Token]) -> ExprRes<'a> {
                 } else { match ir[0] {
                     Token::SemiColon |
                     Token::RPar |
-                    Token::Comma => Ok((ir, Box::new(FuncCall::new(&get_package_ref(None),name,args)))),
-                    _ => p_op(Box::new(FuncCall::new(&get_package_ref(None),name,args)),ir),
+                    Token::LBrac |
+                    Token::Comma => Ok((ir, Box::new(FuncCall::new(package,name,args)))),
+                    _ => p_op(Box::new(FuncCall::new(package,name,args)),ir),
                 }}
             },
             Err(e) => Err(e),
@@ -135,7 +148,8 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
             e => e,
         },
         Token::Id(ref n) => match input[1] {
-            Token::LPar => p_func_call(n, &input[1..]),
+            Token::LPar => p_func_call(n, &get_package_ref(None), &input[1..]),
+            Token::DoubleColon => p_path(&get_package_ref(Some(n)), &input[2..]), // TODO: check size, avoid clone
             _ => Ok((&input[1..], Box::new(ValExpr::Var(n.clone())))),
         },
         _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),

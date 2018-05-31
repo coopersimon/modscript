@@ -3,7 +3,8 @@ mod tokeniser;
 mod parser;
 mod expr;
 
-use nom::{InputLength, Compare, CompareResult};
+pub use self::parser::{parse_package, parse_snippet};
+pub use self::tokeniser::tokenise;
 
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,6 +20,7 @@ pub enum Token {
     Func,
     Return,
     If,
+    Elif,
     Else,
     While,
     True,
@@ -71,46 +73,7 @@ pub enum Token {
     DoubleColon,
     SemiColon,
     //Arrow,
-    //Dot,
+    Dot,
     //LSq,
     //RSq,
 }
-
-/*impl InputLength for Token {
-    fn input_len(&self) -> usize {
-        1
-    }
-}*/
-
-/*impl nom::AsBytes for Token {
-    fn as_bytes
-}*/
-
-type TokenSlice<'a> = &'a [Token];
-
-//type A = 'a;
-//type B = 'b;
-
-/*impl<'a, 'b> Compare<&'b [Token]> for &'a [Token] {
-    fn compare(&'a self, t: &'b [Token]) -> CompareResult {
-        if t.len() == 0 {
-            return CompareResult::Incomplete;
-        } else if self == t {
-            return CompareResult::Ok;
-        } else {
-            return CompareResult::Error;
-        }
-    }
-}*/
-
-/*impl Compare<&'a [Token]> for &'b [Token] {
-    fn compare(&self, t: &[Token]) -> CompareResult {
-        if t.len() == 0 {
-            return CompareResult::Incomplete;
-        } else if self == t {
-            return CompareResult::Ok;
-        } else {
-            return CompareResult::Error;
-        }
-    }
-}*/

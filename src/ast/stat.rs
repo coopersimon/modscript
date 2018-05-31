@@ -80,7 +80,6 @@ impl Statement for ScopeStat {
 
 impl VarDecl {
     pub fn new(n: &str, a: Option<Box<Expr>>) -> Self {
-        println!("var decl");
         VarDecl {
             name: n.to_string(),
             assign: a,
