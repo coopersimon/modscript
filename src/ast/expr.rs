@@ -35,12 +35,26 @@ pub struct ModExpr {
     right: Box<Expr>,
 }
 
+pub struct NegExpr {
+    right: Box<Expr>,
+}
+
 pub struct EqExpr {
     left: Box<Expr>,
     right: Box<Expr>,
 }
 
+pub struct NEqExpr {
+    left: Box<Expr>,
+    right: Box<Expr>,
+}
+
 pub struct TrueEqExpr {
+    left: Box<Expr>,
+    right: Box<Expr>,
+}
+
+pub struct TrueNEqExpr {
     left: Box<Expr>,
     right: Box<Expr>,
 }
@@ -281,6 +295,33 @@ impl Expr for ModExpr {
 }
 
 
+impl NegExpr {
+    pub fn new(r: Box<Expr>) -> Self {
+        NegExpr {
+            right: r,
+        }
+    }
+}
+
+impl AstNode for NegExpr {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for NegExpr {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        let a = self.right.eval(state, f)?;
+
+        match a {
+            Value::Int(x) => Ok(Value::Int(-x)),
+            Value::Float(x) => Ok(Value::Float(-x)),
+            _ => expr_err("Negation type error."),
+        }
+    }
+}
+
+
 impl EqExpr {
     pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
         EqExpr {
@@ -324,7 +365,59 @@ impl Expr for EqExpr {
             (Value::Bool(true),Value::Str(y)) => Ok(Value::Bool("true" == y)),
             (Value::Bool(false),Value::Str(y)) => Ok(Value::Bool("false" == y)),
             (Value::Bool(x),Value::Bool(y)) => Ok(Value::Bool(x == y)),
+            (Value::Null,Value::Null) => Ok(Value::Bool(true)),
             (_,_) => Ok(Value::Bool(false)),
+            //(_,_) => expr_err("Equality check type error.".to_string()),
+        }
+    }
+}
+
+
+impl NEqExpr {
+    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+        NEqExpr {
+            left: l,
+            right: r,
+        }
+    }
+}
+
+impl AstNode for NEqExpr {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for NEqExpr {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        let a = self.left.eval(state, f)?;
+        let b = self.right.eval(state, f)?;
+
+        match (a,b) {
+            (Value::Int(x),Value::Int(y)) => Ok(Value::Bool(x != y)),
+            (Value::Int(x),Value::Float(y)) => Ok(Value::Bool(x != (y as i64))),
+            (Value::Int(x),Value::Str(y)) => Ok(Value::Bool(x.to_string() != y)),
+            (Value::Int(0),Value::Bool(true)) => Ok(Value::Bool(true)),
+            (Value::Int(0),Value::Bool(false)) => Ok(Value::Bool(false)),
+            (Value::Int(_),Value::Bool(true)) => Ok(Value::Bool(false)),
+            (Value::Int(_),Value::Bool(false)) => Ok(Value::Bool(true)),
+            (Value::Float(x),Value::Int(y)) => Ok(Value::Bool((x as i64) != y)),
+            (Value::Float(x),Value::Float(y)) => Ok(Value::Bool(x != y)),
+            (Value::Float(x),Value::Str(y)) => Ok(Value::Bool(x.to_string() != y)),
+            (Value::Str(x),Value::Int(y)) => Ok(Value::Bool(x != y.to_string())),
+            (Value::Str(x),Value::Float(y)) => Ok(Value::Bool(x != y.to_string())),
+            (Value::Str(x),Value::Str(y)) => Ok(Value::Bool(x != y)),
+            (Value::Str(x),Value::Bool(true)) => Ok(Value::Bool(x != "true")),
+            (Value::Str(x),Value::Bool(false)) => Ok(Value::Bool(x != "false")),
+            (Value::Bool(true),Value::Int(0)) => Ok(Value::Bool(true)),
+            (Value::Bool(false),Value::Int(0)) => Ok(Value::Bool(false)),
+            (Value::Bool(true),Value::Int(_)) => Ok(Value::Bool(false)),
+            (Value::Bool(false),Value::Int(_)) => Ok(Value::Bool(true)),
+            (Value::Bool(true),Value::Str(y)) => Ok(Value::Bool("true" != y)),
+            (Value::Bool(false),Value::Str(y)) => Ok(Value::Bool("false" != y)),
+            (Value::Bool(x),Value::Bool(y)) => Ok(Value::Bool(x != y)),
+            (Value::Null,Value::Null) => Ok(Value::Bool(false)),
+            (_,_) => Ok(Value::Bool(true)),
             //(_,_) => expr_err("Equality check type error.".to_string()),
         }
     }
@@ -356,6 +449,37 @@ impl Expr for TrueEqExpr {
             (Value::Float(x),Value::Float(y)) => Ok(Value::Bool(x == y)),
             (Value::Str(x),Value::Str(y)) => Ok(Value::Bool(x == y)),
             (Value::Bool(x),Value::Bool(y)) => Ok(Value::Bool(x == y)),
+            (_,_) => expr_err("Equality check type error."),
+        }
+    }
+}
+
+
+impl TrueNEqExpr {
+    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+        TrueNEqExpr {
+            left: l,
+            right: r,
+        }
+    }
+}
+
+impl AstNode for TrueNEqExpr {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for TrueNEqExpr {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        let a = self.left.eval(state, f)?;
+        let b = self.right.eval(state, f)?;
+
+        match (a,b) {
+            (Value::Int(x),Value::Int(y)) => Ok(Value::Bool(x != y)),
+            (Value::Float(x),Value::Float(y)) => Ok(Value::Bool(x != y)),
+            (Value::Str(x),Value::Str(y)) => Ok(Value::Bool(x != y)),
+            (Value::Bool(x),Value::Bool(y)) => Ok(Value::Bool(x != y)),
             (_,_) => expr_err("Equality check type error."),
         }
     }

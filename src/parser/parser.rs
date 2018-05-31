@@ -1,6 +1,5 @@
 use super::Token;
 use super::resolver::Resolver;
-//use super::expr::p_expr;
 
 use ast::*;
 use runtime::Value;
@@ -574,6 +573,57 @@ mod tests {
         let mut s = Scope::new();
 
         assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Int(36));
+    }
+
+    #[test]
+    fn parse_neg_expr() {
+        use runtime::Scope;
+
+        let input = "-3 * -5;";
+        let parsed = tokenise(input).unwrap();
+
+        //assert_eq!(parsed, vec![Token::IntLit(3), Token::Plus, Token::IntLit(3)]);
+
+        let (_, expr) = p_expr(&parsed).unwrap();
+
+        let fm = FuncMap::new();
+        let mut s = Scope::new();
+
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Int(15));
+    }
+
+    #[test]
+    fn parse_bool_expr() {
+        use runtime::Scope;
+
+        let input = "!false;";
+        let parsed = tokenise(input).unwrap();
+
+        //assert_eq!(parsed, vec![Token::IntLit(3), Token::Plus, Token::IntLit(3)]);
+
+        let (_, expr) = p_expr(&parsed).unwrap();
+
+        let fm = FuncMap::new();
+        let mut s = Scope::new();
+
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Bool(true));
+    }
+
+    #[test]
+    fn parse_relate_expr() {
+        use runtime::Scope;
+
+        let input = "3 < 1 + 5;";
+        let parsed = tokenise(input).unwrap();
+
+        //assert_eq!(parsed, vec![Token::IntLit(3), Token::Plus, Token::IntLit(3)]);
+
+        let (_, expr) = p_expr(&parsed).unwrap();
+
+        let fm = FuncMap::new();
+        let mut s = Scope::new();
+
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Bool(true));
     }
 
     #[test]

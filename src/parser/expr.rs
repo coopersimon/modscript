@@ -28,44 +28,10 @@ macro_rules! op_match {
     };
 }
 
-/*pub fn p_expr(input: &[Token]) -> ExprRes {
-    if input.len() < 2 {
-        Err(Err::Incomplete(Needed::Size(2)))
-    } else match input[0] {
-        Token::IntLit(i) => match input[1] {
-            Token::SemiColon |
-            Token::RPar |
-            Token::Comma => Ok((&input[1..], Box::new(ValExpr::Int(i)))),
-            _ => p_op(Box::new(ValExpr::Int(i)), &input[1..]),
-        },
-        Token::LPar => match p_expr(&input[1..]) {
-            Ok((ir, expr)) => {
-                if ir.len() < 2 {
-                    Err(Err::Incomplete(Needed::Size(2)))
-                } else match (ir[0], ir[1]) {
-                    (Token::RPar, Token::SemiColon) |
-                    (Token::RPar, Token::RPar) |
-                    (Token::RPar, Token::Comma) => Ok((&ir[1..], expr)),
-                    (Token::RPar, _) => p_op(expr, &ir[1..]),
-                    (_, _) => Err(Err::Error(Context::Code(ir, ErrorKind::Custom(100)))),
-                }
-            },
-            e => e,
-        },
-        Token::Id(ref n) => match input[1] {
-            Token::SemiColon |
-            Token::RPar |
-            Token::Comma => Ok((&input[1..], Box::new(ValExpr::Var(n.clone())))),
-            Token::LPar => p_func_call(n, &input[1..]),
-            _ => p_op(Box::new(ValExpr::Var(n.clone())), &input[1..]),
-        },
-    }
-}*/
-
 pub fn p_expr<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
-    } else { match p_atom(&input) {
+    } else { match p_unary(&input) {
         Ok((ir,expr)) => {
             if ir.len() < 1 {
                 Err(Err::Incomplete(Needed::Size(1)))
@@ -84,10 +50,22 @@ fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
-        Token::Times => op_match!(input, p_atom, first, MulExpr::new),
-        Token::Divide => op_match!(input, p_atom, first, DivExpr::new),
-        Token::Plus => op_match!(input, p_mul, first, AddExpr::new),
-        Token::Minus => op_match!(input, p_mul, first, SubExpr::new),
+        Token::Times => op_match!(input, p_unary, first, MulExpr::new),
+        Token::Divide => op_match!(input, p_unary, first, DivExpr::new),
+        Token::Modulo => op_match!(input, p_unary, first, ModExpr::new),
+        Token::Plus => op_match!(input, p_mul_div, first, AddExpr::new),
+        Token::Minus => op_match!(input, p_mul_div, first, SubExpr::new),
+        Token::GThan => op_match!(input, p_add_sub, first, GThanExpr::new),
+        Token::GEq => op_match!(input, p_add_sub, first, GEqExpr::new),
+        Token::LThan => op_match!(input, p_add_sub, first, LThanExpr::new),
+        Token::LEq => op_match!(input, p_add_sub, first, LEqExpr::new),
+        Token::Equal => op_match!(input, p_relational, first, EqExpr::new),
+        Token::NEqual => op_match!(input, p_relational, first, NEqExpr::new),
+        Token::TrueEq => op_match!(input, p_relational, first, TrueEqExpr::new),
+        Token::TrueNEq => op_match!(input, p_relational, first, TrueNEqExpr::new),
+        Token::And => op_match!(input, p_equality, first, AndExpr::new),
+        Token::Xor => op_match!(input, p_equality, first, XorExpr::new),
+        Token::Or => op_match!(input, p_equality, first, OrExpr::new),
         _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(101)))),
     }}
 }
@@ -141,6 +119,10 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
         Token::IntLit(i) => Ok((&input[1..], Box::new(ValExpr::Int(i)))),
+        Token::FloatLit(f) => Ok((&input[1..], Box::new(ValExpr::Float(f)))),
+        Token::StrLit(ref s) => Ok((&input[1..], Box::new(ValExpr::Text(s.clone())))),
+        Token::True => Ok((&input[1..], Box::new(ValExpr::Bool(true)))),
+        Token::False => Ok((&input[1..], Box::new(ValExpr::Bool(false)))),
         Token::LPar => match p_expr(&input[1..]) {
             Ok((ir, expr)) => {
                 if ir.len() < 2 {
@@ -160,16 +142,105 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
     }}
 }
 
-fn p_mul<'a>(input: &'a [Token]) -> ExprRes<'a> {
+fn p_unary<'a>(input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 2 {
+        Err(Err::Incomplete(Needed::Size(2)))
+    } else { match input[0] {
+        Token::Not => match p_atom(&input[1..]) {
+            Ok((ir,expr)) => Ok((ir, Box::new(NotExpr::new(expr)))),
+            e => e,
+        },
+        Token::Minus => match p_atom(&input[1..]) {
+            Ok((ir,expr)) => Ok((ir, Box::new(NegExpr::new(expr)))),
+            e => e,
+        },
+        _ => p_atom(&input),
+    }}
+}
+
+fn p_mul_div<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 1 {
         Err(Err::Incomplete(Needed::Size(1)))
-    } else { match p_atom(&input) {
+    } else { match p_unary(&input) {
         Ok((ir,first)) => {
             if ir.len() < 1 {
                 Err(Err::Incomplete(Needed::Size(1)))
             } else { match ir[0] {
-                Token::Times => op_match!(ir, p_atom, first, MulExpr::new),
-                Token::Divide => op_match!(ir, p_atom, first, DivExpr::new),
+                Token::Times => op_match!(ir, p_unary, first, MulExpr::new),
+                Token::Divide => op_match!(ir, p_unary, first, DivExpr::new),
+                Token::Modulo => op_match!(ir, p_unary, first, ModExpr::new),
+                _ => Ok((ir,first)),
+            }}
+        },
+        e => e,
+    }}
+}
+
+fn p_add_sub<'a>(input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 1 {
+        Err(Err::Incomplete(Needed::Size(1)))
+    } else { match p_unary(&input) {
+        Ok((ir,first)) => {
+            if ir.len() < 1 {
+                Err(Err::Incomplete(Needed::Size(1)))
+            } else { match ir[0] {
+                Token::Times => op_match!(ir, p_unary, first, MulExpr::new),
+                Token::Divide => op_match!(ir, p_unary, first, DivExpr::new),
+                Token::Modulo => op_match!(ir, p_unary, first, ModExpr::new),
+                Token::Plus => op_match!(ir, p_mul_div, first, AddExpr::new),
+                Token::Minus => op_match!(ir, p_mul_div, first, SubExpr::new),
+                _ => Ok((ir,first)),
+            }}
+        },
+        e => e,
+    }}
+}
+
+fn p_relational<'a>(input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 1 {
+        Err(Err::Incomplete(Needed::Size(1)))
+    } else { match p_unary(&input) {
+        Ok((ir,first)) => {
+            if ir.len() < 1 {
+                Err(Err::Incomplete(Needed::Size(1)))
+            } else { match ir[0] {
+                Token::Times => op_match!(ir, p_unary, first, MulExpr::new),
+                Token::Divide => op_match!(ir, p_unary, first, DivExpr::new),
+                Token::Modulo => op_match!(ir, p_unary, first, ModExpr::new),
+                Token::Plus => op_match!(ir, p_mul_div, first, AddExpr::new),
+                Token::Minus => op_match!(ir, p_mul_div, first, SubExpr::new),
+                Token::GThan => op_match!(ir, p_add_sub, first, GThanExpr::new),
+                Token::GEq => op_match!(ir, p_add_sub, first, GEqExpr::new),
+                Token::LThan => op_match!(ir, p_add_sub, first, LThanExpr::new),
+                Token::LEq => op_match!(ir, p_add_sub, first, LEqExpr::new),
+                _ => Ok((ir,first)),
+            }}
+        },
+        e => e,
+    }}
+}
+
+fn p_equality<'a>(input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 1 {
+        Err(Err::Incomplete(Needed::Size(1)))
+    } else { match p_unary(&input) {
+        Ok((ir,first)) => {
+            if ir.len() < 1 {
+                Err(Err::Incomplete(Needed::Size(1)))
+            } else { match ir[0] {
+                Token::Times => op_match!(ir, p_unary, first, MulExpr::new),
+                Token::Divide => op_match!(ir, p_unary, first, DivExpr::new),
+                Token::Modulo => op_match!(ir, p_unary, first, ModExpr::new),
+                Token::Plus => op_match!(ir, p_mul_div, first, AddExpr::new),
+                Token::Minus => op_match!(ir, p_mul_div, first, SubExpr::new),
+                Token::GThan => op_match!(ir, p_add_sub, first, GThanExpr::new),
+                Token::GEq => op_match!(ir, p_add_sub, first, GEqExpr::new),
+                Token::LThan => op_match!(ir, p_add_sub, first, LThanExpr::new),
+                Token::LEq => op_match!(ir, p_add_sub, first, LEqExpr::new),
+                Token::Equal => op_match!(input, p_relational, first, EqExpr::new),
+                Token::NEqual => op_match!(input, p_relational, first, NEqExpr::new),
+                Token::TrueEq => op_match!(input, p_relational, first, TrueEqExpr::new),
+                Token::TrueNEq => op_match!(input, p_relational, first, TrueNEqExpr::new),
                 _ => Ok((ir,first)),
             }}
         },
