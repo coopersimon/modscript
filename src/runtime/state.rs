@@ -1,182 +1,82 @@
-use super::{Value, Signal, ExprRes, expr_err};
-use std::collections::BTreeMap;
+use super::scope::Scope;
+use super::{Value, Ref, Signal, ExprRes, expr_err};
 
-pub struct Scope {
-    vars: Vec<BTreeMap<String, Value>>,
+pub enum HeapVal {
+    List(Vec<Box<Value>>),
 }
 
 
-impl Scope {
+pub struct State {
+    stack: Vec<Scope>,
+
+    //
+    
+}
+
+impl State {
     pub fn new() -> Self {
-        Scope {
-            vars: vec![BTreeMap::new()],
+        State {
+            stack: Vec::new(),
+            //heap_tracker: Vec::new(),
+            //heap: Vec::new(),
         }
     }
 
-    pub fn extend(&mut self) {
-        self.vars.push(BTreeMap::new());
+    fn clean_heap(&mut self) {
+        /*let s = self.heap_tracker.pop();
+        let size = self.heap.len() - s;
+        self.heap.truncate(size);*/
+        
     }
 
-    pub fn reduce(&mut self) {
-        self.vars.pop();
+    pub fn scope_push(&mut self) {
+        self.stack.push(Scope::new());
+    }
+
+    pub fn scope_pop(&mut self) {
+        self.stack.pop();
+        self.clean_heap();
+    }
+
+    /*pub fn get_scope(&mut self) -> &mut Scope {
+        self.stack.last_mut().unwrap()
+    }*/
+
+    pub fn scope_extend(&mut self) {
+        self.stack.last_mut().unwrap().extend();
+    }
+
+    pub fn scope_reduce(&mut self) {
+        self.stack.last_mut().unwrap().reduce();
     }
 
     pub fn new_var(&mut self, name: &str, val: Value) -> Signal {
-        match self.vars.last_mut() {
-            Some(t) => match t.contains_key(name) {
-                true => Signal::Error("Value already declared.".to_string()),
-                false => {t.insert(name.to_string(), val); Signal::Done},
+        // does space need to be allocated on heap?
+        match val {
+            RawList(l) => {
+                // store list on heap and generate ref
+                let r = 
+                self.stack.last_mut().unwrap().new_var(name, Value::List(r))
             },
-            // critical error
-            None => Signal::Error("Internal critical scope error.".to_string()),
+            v => self.stack.last_mut().unwrap().new_var(name, v)
         }
-    }
-
-    pub fn get_var(&self, name: &str) -> ExprRes {
-        for t in self.vars.iter().rev() {
-            match t.get(name) {
-                Some(v) => return Ok(v.clone()),
-                None => {},
-            }
-        }
-
-        expr_err("Value not declared.")
     }
 
     pub fn set_var(&mut self, name: &str, val: Value) -> Signal {
-        for t in self.vars.iter_mut().rev() {
-            match t.contains_key(name) {
-                true => {t.insert(name.to_string(), val); return Signal::Done;},
-                false => {},
-            }
-        }
 
-        Signal::Error("Value not declared.".to_string())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn is_error(s: Signal) -> bool {
-        match s {
-            Signal::Error(_) => true,
-            _ => false,
-        }
     }
 
-    fn is_expr_error(s: ExprRes) -> bool {
-        match s {
-            Err(_) => true,
-            _ => false,
-        }
+    pub fn get_var(&self, name: &str) -> ExprRes {
+        self.stack.last_mut().unwrap().get_var(name)
     }
 
-    // BASIC TESTS
-    #[test]
-    fn declare_variable() {
-        let mut state = Scope::new();
-
-        assert_eq!(state.new_var("x", Value::Int(30)), Signal::Done);
+    pub fn set_index_var(&mut self, r: Ref, i: u64, val: Value) -> Signal {
+        // use ref to access heap var
+        // index with i and set
     }
 
-    #[test]
-    fn read_variable() {
-        let mut state = Scope::new();
-
-        state.new_var("x", Value::Int(30));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-    }
-
-    #[test]
-    fn read_undeclared_variable() {
-        let state = Scope::new();
-
-        assert!(is_expr_error(state.get_var("x")));
-    }
-
-    #[test]
-    fn set_undeclared_variable() {
-        let mut state = Scope::new();
-        
-        assert!(is_error(state.set_var("x", Value::Int(30))));
-    }
-
-    #[test]
-    fn set_variable() {
-        let mut state = Scope::new();
-        
-        state.new_var("x", Value::Int(30));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-
-        state.set_var("x", Value::Float(2.5));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
-    }
-
-    #[test]
-    fn set_multi_variables() {
-        let mut state = Scope::new();
-        
-        state.new_var("x", Value::Int(30));
-
-        state.new_var("y", Value::Float(3.3));
-        
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-
-        assert_eq!(state.get_var("y"), Ok(Value::Float(3.3)));
-    }
-
-    // SCOPE TESTS
-    #[test]
-    fn extend_scope() {
-        let mut state = Scope::new();
-
-        state.extend();
-        
-        state.new_var("x", Value::Int(30));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-
-        state.reduce();
-
-        assert!(is_expr_error(state.get_var("x")));
-    }
-
-    #[test]
-    fn shadow_variables() {
-        let mut state = Scope::new();
-
-        state.new_var("x", Value::Int(30));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-
-        state.extend();
-        
-        state.new_var("x", Value::Float(2.5));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
-    }
-
-    #[test]
-    fn shadow_variables_and_retract() {
-        let mut state = Scope::new();
-
-        state.new_var("x", Value::Int(30));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
-
-        state.extend();
-        
-        state.new_var("x", Value::Float(2.5));
-
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
-
-        state.reduce();
-
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+    pub fn get_index_var(&mut self, r: Ref, i: u64) -> ExprRes {
+        // use ref to access heap var
+        // index with i and get
     }
 }

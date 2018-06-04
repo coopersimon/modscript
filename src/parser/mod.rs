@@ -14,6 +14,7 @@ pub enum Token {
     IntLit(i64),
     FloatLit(f64),
     StrLit(String),
+    Null,
 
     // Keywords
     Var,
@@ -25,12 +26,12 @@ pub enum Token {
     While,
     True,
     False,
-    //For,
-    //In,
-    //Continue,
-    //Break,
-    //Import,
-    //As,
+    For,
+    In,
+    Continue,
+    Break,
+    Import,
+    As,
 
     // Core functions?
 
@@ -74,6 +75,6 @@ pub enum Token {
     SemiColon,
     //Arrow,
     Dot,
-    //LSq,
-    //RSq,
+    LSq,
+    RSq,
 }

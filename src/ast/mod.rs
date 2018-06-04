@@ -99,8 +99,8 @@ impl FuncRoot {
                 Signal::Done => {},
                 Signal::Error(e) => return Err(e),
                 Signal::Return(v) => return Ok(v),
-                //Continue => return Err(...),
-                //Break
+                Signal::Continue => return Err("Cannot continue out of a function.".to_string()),
+                Signal::Break => return Err("Cannot break out of a function.".to_string()),
             }
         }
 

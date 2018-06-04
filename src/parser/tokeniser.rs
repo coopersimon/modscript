@@ -16,14 +16,17 @@ const VAR: &'static str = "var";
 const RETURN: &'static str = "return";
 const FOR: &'static str = "for";
 const WHILE: &'static str = "while";
+const IN: &'static str = "in";
 const IF: &'static str = "if";
 const ELIF: &'static str = "elif";
 const ELSE: &'static str = "else";
-// continue
-// break
-// in
+const CONTINUE: &'static str = "continue";
+const BREAK: &'static str = "break";
 const TRUE: &'static str = "true";
 const FALSE: &'static str = "false";
+const NULL: &'static str = "null";
+const IMPORT: &'static str = "import";
+const AS: &'static str = "as";
 
 
 named!(p_token_list<&str, Vec<Token> >,
@@ -112,6 +115,8 @@ named!(p_punctuators<&str, Token>,
         value!(Token::RBrac, tag!("}"))         |
         value!(Token::LPar, tag!("("))          |
         value!(Token::RPar, tag!(")"))          |
+        value!(Token::LSq, tag!("["))           |
+        value!(Token::RSq, tag!("]"))           |
         value!(Token::Comma, tag!(","))         |
         value!(Token::SemiColon, tag!(";"))     |
         value!(Token::DoubleColon, tag!("::"))
@@ -152,15 +157,22 @@ named!(p_operators<&str, Token>,
 named!(p_keywords<&str, Token>,
     do_parse!(
         t: alt!(
-            value!(Token::Var, tag!(VAR))       |
-            value!(Token::Func, tag!(FUNC))     |
-            value!(Token::Return, tag!(RETURN)) |
-            value!(Token::If, tag!(IF))         |
-            value!(Token::Elif, tag!(ELIF))     |
-            value!(Token::Else, tag!(ELSE))     |
-            value!(Token::While, tag!(WHILE))   |
-            value!(Token::True, tag!(TRUE))     |
-            value!(Token::False, tag!(FALSE))
+            value!(Token::Var, tag!(VAR))           |
+            value!(Token::Func, tag!(FUNC))         |
+            value!(Token::Return, tag!(RETURN))     |
+            value!(Token::If, tag!(IF))             |
+            value!(Token::Elif, tag!(ELIF))         |
+            value!(Token::Else, tag!(ELSE))         |
+            value!(Token::While, tag!(WHILE))       |
+            value!(Token::For, tag!(FOR))           |
+            value!(Token::In, tag!(IN))             |
+            value!(Token::Continue, tag!(CONTINUE)) |
+            value!(Token::Break, tag!(BREAK))       |
+            value!(Token::True, tag!(TRUE))         |
+            value!(Token::False, tag!(FALSE))       |
+            value!(Token::Null, tag!(NULL))         |
+            value!(Token::Import, tag!(IMPORT))     |
+            value!(Token::As, tag!(AS))
         )                           >>
         peek!(not!(alphanumeric))   >>
         (t)

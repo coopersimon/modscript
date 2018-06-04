@@ -1,21 +1,27 @@
 // Runtime tools for script engine
-mod state;
+mod scope;
 mod function;
 
-pub use self::state::*;
+pub use self::scope::*;
 pub use self::function::*;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use std::fmt;
 
+pub type Ref<T> = Rc<RefCell<T>>;
+
+// Types
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     Int(i64),
     Float(f64),
-    Str(String),
     Bool(bool),
+    Str(String), // TODO: switch to ref?
+    List(Ref< Vec<Value> >),
+    //
     Null,
-    // List
-    // Object
 }
 
 impl fmt::Display for Value {
@@ -25,6 +31,14 @@ impl fmt::Display for Value {
             &Value::Float(n) => write!(f, "{}", n),
             &Value::Str(ref s) => write!(f, "\"{}\"", s),
             &Value::Bool(b) => write!(f, "{}", b),
+            &Value::List(ref l) => {
+                let l = l.borrow();
+                write!(f, "[")?;
+                for e in l.iter() {
+                    write!(f, "{}, ", e)?;
+                }
+                write!(f, "]")
+            },
             &Value::Null => write!(f, "null"),
         }
     }
@@ -35,9 +49,10 @@ impl fmt::Display for Value {
 pub enum Signal {
     Error(String),
     Return(Value),
+    Continue,
+    Break,
+    // Exception,
     Done,
-    //Continue
-    //Break
 }
 
 pub type ExprRes = Result<Value, String>;

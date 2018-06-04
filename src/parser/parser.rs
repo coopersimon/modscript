@@ -63,8 +63,42 @@ pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Scri
 
 
 named!(p_func_list<&[Token], Vec<(String, FuncRoot)> >,
-    many1!(
-        complete!(p_func)
+    do_parse!(
+        p_import    >>
+        f: many1!(
+            complete!(p_func)
+        )           >>
+        (f)
+    )
+);
+
+named!(p_import<&[Token], Vec<()> >,
+    many0!(
+        do_parse!(
+            apply!(compare, Token::Import)  >>
+            alt!(
+                do_parse!(
+                    pack: is_str_lit                    >>
+                    apply!(compare, Token::As)          >>
+                    id: is_id                           >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_package_ref(&id, &pack))
+                )   |
+                do_parse!(
+                    pack: is_id                         >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_package_ref(&pack, &pack))
+                )   |
+                do_parse!(
+                    pack: is_id                         >>
+                    apply!(compare, Token::As)          >>
+                    id: is_id                           >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_package_ref(&id, &pack))
+                )
+            )                               >>
+            (())
+        )
     )
 );
 
@@ -91,7 +125,6 @@ named!(p_id_list<&[Token], Vec<String> >,
 
 named!(p_func_body<&[Token], Vec<Box<Statement> > >,
     do_parse!(
-        // imports
         s: p_stat_list  >>
         (s)
     )
@@ -106,10 +139,13 @@ named!(p_stat_list<&[Token], Vec<Box<Statement> > >,
 named!(p_stat<&[Token], Box<Statement> >,
     alt!(
         p_scope         |
-        //p_func_stat     |
+        //p_expr_stat   |
         p_return_stat   |
         p_if_stat       |
         p_while_stat    |
+        p_for_stat      |
+        p_continue_stat |
+        p_break_stat    |
         p_decl_stat     |
         p_assign_stat
     )
@@ -121,6 +157,14 @@ named!(p_scope<&[Token], Box<Statement> >,
         stats: p_stat_list              >>
         apply!(compare, Token::RBrac)   >>
         (Box::new(ScopeStat::new(stats)))
+    )
+);
+
+named!(p_expr_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        expr: p_expr                        >>
+        apply!(compare, Token::SemiColon)   >>
+        (Box::new(ExprStat::new(expr)))
     )
 );
 
@@ -169,6 +213,49 @@ named!(p_while_stat<&[Token], Box<Statement> >,
     )
 );
 
+named!(p_for_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        apply!(compare, Token::For)     >>
+        f: alt!(
+            do_parse!(
+                element: is_id              >>
+                apply!(compare, Token::In)  >>
+                list: p_expr                >>
+                body: p_stat                >>
+                (Box::new(ForStat::new(element, list, body)) as Box<Statement>)
+            )   |
+            do_parse!(
+                apply!(compare, Token::LPar)        >>
+                init: p_stat                        >>
+                apply!(compare, Token::SemiColon)   >>
+                cond: p_expr                        >>
+                apply!(compare, Token::SemiColon)   >>
+                end: p_stat                         >>
+                apply!(compare, Token::RPar)        >>
+                body: p_stat                        >>
+                (Box::new(LoopStat::new(init, cond, end, body)) as Box<Statement>)
+            )
+        )                               >>
+        (f)
+    )
+);
+
+named!(p_continue_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        apply!(compare, Token::Continue)    >>
+        apply!(compare, Token::SemiColon)   >>
+        (Box::new(ContinueStat::new()))
+    )
+);
+
+named!(p_break_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        apply!(compare, Token::Break)       >>
+        apply!(compare, Token::SemiColon)   >>
+        (Box::new(BreakStat::new()))
+    )
+);
+
 named!(p_decl_stat<&[Token], Box<Statement> >,
     do_parse!(
         apply!(compare, Token::Var)         >>
@@ -187,30 +274,67 @@ named!(p_assign_stat<&[Token], Box<Statement> >,
     do_parse!(
         var: is_id                          >>
         //expr: apply!(p_assign_expr, &var)   >>
-        expr: do_parse!(
+        expr: apply!(assign_op, &var)   >>
+        /*expr: do_parse!(
             apply!(compare, Token::Assign)  >>
             e: p_expr                       >>
             (e)
-        )                                   >>
+        )                                   >>*/
         apply!(compare, Token::SemiColon)   >>
         (Box::new(AssignStat::new(&var, expr)))
     )
 );
 
-/*named_args!(p_assign_expr(var: &str)<&[Token], Box<Expr> >,
+/*named_args!(p_assign_expr(var: &str)<Box<Expr> >,
     switch!(take!(1),
-        Token::Assign   => p_expr    |
+        Token::Assign   => call!(p_expr)    |
         Token::AsnPlus  => do_parse!(
-            e: p_expr
-            (Box::new(AddExpr::new(Box::new(ValExpr(var.to_string())),e)))
-        )                           //|
+            e: p_expr   >>
+            (Box::new(AddExpr::new(Box::new(ValExpr::Var(var)),e)))
+        )                                   |
+        Token::AsnMinus => do_parse!(
+            e: p_expr   >>
+            (Box::new(SubExpr::new(Box::new(ValExpr::Var(var)),e)))
+        )                                   //|
     )
 );*/
+
+/*macro_rules! assign_expr {
+    ($op_expr:path) => {
+        do_parse!(
+            
+    };
+}*/
 
 named!(p_expr<&[Token], Box<Expr> >,
     call!(super::expr::p_expr)
 );
 
+macro_rules! assign_expr {
+    ($input:ident, $id:ident, $op_expr:path) => {
+        match p_expr(&$input[1..]) {
+            Ok((ir,expr)) => Ok((ir, Box::new($op_expr(Box::new(ValExpr::Var($id.to_string())), expr)))),
+            e => e,
+        }
+    };
+}
+
+fn assign_op<'a>(input: &'a [Token], id: &str) -> IResult<&'a [Token], Box<Expr>> {
+    if input.len() < 2 {
+        Err(Err::Incomplete(Needed::Size(2)))
+    } else { match input[0] {
+        Token::Assign => p_expr(&input[1..]),
+        Token::AsnPlus => assign_expr!(input, id, AddExpr::new),
+        Token::AsnMinus => assign_expr!(input, id, SubExpr::new),
+        Token::AsnTimes => assign_expr!(input, id, MulExpr::new),
+        Token::AsnDivide => assign_expr!(input, id, DivExpr::new),
+        Token::AsnModulo => assign_expr!(input, id, ModExpr::new),
+        Token::AsnOr => assign_expr!(input, id, OrExpr::new),
+        Token::AsnXor => assign_expr!(input, id, XorExpr::new),
+        Token::AsnAnd => assign_expr!(input, id, AndExpr::new),
+        _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(102)))),
+    }}
+}
 
 fn compare(input: &[Token], t: Token) -> IResult<&[Token], &[Token]> {
     if input.len() == 0 {
@@ -229,6 +353,17 @@ fn is_id(input: &[Token]) -> IResult<&[Token], String> {
         match input[0] {
             Token::Id(ref s) => Ok((&input[1..], s.clone())),
             _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(105)))),
+        }
+    }
+}
+
+fn is_str_lit(input: &[Token]) -> IResult<&[Token], String> {
+    if input.len() == 0 {
+        Err(Err::Incomplete(Needed::Size(1)))
+    } else {
+        match input[0] {
+            Token::StrLit(ref s) => Ok((&input[1..], s.clone())),
+            _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(106)))),
         }
     }
 }

@@ -15,6 +15,10 @@ pub struct AssignStat {
     assign: Box<Expr>,
 }
 
+pub struct ExprStat {
+    expr: Box<Expr>,
+}
+
 pub struct IfStat {
     cond: Box<Expr>,
     then_stat: Box<Statement>,
@@ -33,9 +37,20 @@ pub struct WhileStat {
     loop_body: Box<Statement>,
 }
 
+pub struct ForStat {
+    e_name: String,
+    list: Box<Expr>,
+    loop_body: Box<Statement>,
+}
+
 pub struct ReturnStat {
     expr: Option<Box<Expr>>,
 }
+
+//pub struct ContinueStat {phantom: ::std::marker::PhantomData}
+pub struct ContinueStat {}
+
+pub struct BreakStat {}
 
 // pub struct ContinueStat
 // pub struct BreakStat
@@ -46,10 +61,6 @@ pub struct ReturnStat {
 impl ScopeStat {
     pub fn new(c: Vec<Box<Statement>>) -> Self {
         ScopeStat {
-            /*code: match c{
-                Some(c) => c,
-                None => Vec::new(),
-            },*/
             code: c,
         }
     }
@@ -135,6 +146,30 @@ impl Statement for AssignStat {
 }
 
 
+impl ExprStat {
+    pub fn new(e: Box<Expr>) -> Self {
+        ExprStat {
+            expr: e,
+        }
+    }
+}
+
+impl AstNode for ExprStat {
+    fn print(&self) -> String {
+        "scope".to_string()
+    }
+}
+
+impl Statement for ExprStat {
+    fn run(&self, state: &mut Scope, f: &FuncMap) -> Signal {
+        match self.expr.eval(state, f) {
+            Ok(_) => Signal::Done,
+            Err(e) => Signal::Error(e),
+        }
+    }
+}
+
+
 impl IfStat {
     pub fn new(c: Box<Expr>, i: Box<Statement>, e: Option<Box<Statement>>) -> Self {
         IfStat {
@@ -210,6 +245,8 @@ impl Statement for LoopStat {
 
             match self.loop_body.run(state, f) {
                 Signal::Done => {},
+                Signal::Continue => {},
+                Signal::Break => break,
                 s => return s,
             }
 
@@ -254,9 +291,58 @@ impl Statement for WhileStat {
 
             match self.loop_body.run(state, f) {
                 Signal::Done => {},
+                Signal::Continue => {},
+                Signal::Break => break,
                 s => return s,
             }
         }
+
+        Signal::Done
+    }
+}
+
+
+impl ForStat {
+    pub fn new(e: String, l: Box<Expr>, b: Box<Statement>) -> Self {
+        ForStat {
+            e_name: e,
+            list: l,
+            loop_body: b,
+        }
+    }
+}
+
+impl AstNode for ForStat {
+    fn print(&self) -> String {
+        "scope".to_string()
+    }
+}
+
+impl Statement for ForStat {
+    fn run(&self, state: &mut Scope, f: &FuncMap) -> Signal {
+        let l = match self.list.eval(state, f) {
+            Ok(v) => match v {
+                Value::List(l) => l,
+                _ => return Signal::Error("Type error in for loop list.".to_string()),
+            },
+            Err(e) => return Signal::Error(e),
+        };
+
+        state.extend();
+        state.new_var(&self.e_name, Value::Null);
+
+        for e in l.borrow().iter() {
+            state.set_var(&self.e_name, e.clone());
+
+            match self.loop_body.run(state, f) {
+                Signal::Done => {},
+                Signal::Continue => {},
+                Signal::Break => break,
+                s => {state.reduce(); return s},
+            }
+        }
+
+        state.reduce();
 
         Signal::Done
     }
@@ -288,3 +374,40 @@ impl Statement for ReturnStat {
         }
     }
 }   
+
+impl ContinueStat {
+    pub fn new() -> Self {
+        ContinueStat {}
+    }
+}
+
+impl AstNode for ContinueStat {
+    fn print(&self) -> String {
+        "scope".to_string()
+    }
+}
+
+impl Statement for ContinueStat {
+    fn run(&self, _: &mut Scope, _: &FuncMap) -> Signal {
+        Signal::Continue
+    }
+}
+
+
+impl BreakStat {
+    pub fn new() -> Self {
+        BreakStat {}
+    }
+}
+
+impl AstNode for BreakStat {
+    fn print(&self) -> String {
+        "scope".to_string()
+    }
+}
+
+impl Statement for BreakStat {
+    fn run(&self, _: &mut Scope, _: &FuncMap) -> Signal {
+        Signal::Break
+    }
+}
