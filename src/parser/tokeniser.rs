@@ -119,7 +119,8 @@ named!(p_punctuators<&str, Token>,
         value!(Token::RSq, tag!("]"))           |
         value!(Token::Comma, tag!(","))         |
         value!(Token::SemiColon, tag!(";"))     |
-        value!(Token::DoubleColon, tag!("::"))
+        value!(Token::DoubleColon, tag!("::"))  |
+        value!(Token::Arrow, tag!("->"))
     )
 );
 
@@ -183,7 +184,7 @@ named!(p_id<&str, Token>,
     do_parse!(
         peek!(alpha)    >>
         id: take_while!(
-            |c: char| c.is_alphabetic() || (c == '_')
+            |c: char| c.is_alphanumeric() || (c == '_')
         )               >>
         (Token::Id(id.to_string()))
     )

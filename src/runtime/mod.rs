@@ -1,9 +1,11 @@
 // Runtime tools for script engine
 mod scope;
 mod function;
+mod core;
 
 pub use self::scope::*;
 pub use self::function::*;
+pub use self::core::core_func_call;
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -18,7 +20,8 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Str(String), // TODO: switch to ref?
+    Str(String),
+    //Str(Ref< String >),
     List(Ref< Vec<Value> >),
     //
     Null,
@@ -29,8 +32,12 @@ impl fmt::Display for Value {
         match self {
             &Value::Int(n) => write!(f, "{}", n),
             &Value::Float(n) => write!(f, "{}", n),
-            &Value::Str(ref s) => write!(f, "\"{}\"", s),
             &Value::Bool(b) => write!(f, "{}", b),
+            &Value::Str(ref s) => write!(f, "{}", s),
+            /*&Value::Str(ref s) => {
+                let s = s.borrow();
+                write!(f, "\"{}\"", s)
+            },*/
             &Value::List(ref l) => {
                 let l = l.borrow();
                 write!(f, "[")?;

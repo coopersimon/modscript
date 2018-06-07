@@ -47,13 +47,9 @@ pub struct ReturnStat {
     expr: Option<Box<Expr>>,
 }
 
-//pub struct ContinueStat {phantom: ::std::marker::PhantomData}
 pub struct ContinueStat {}
 
 pub struct BreakStat {}
-
-// pub struct ContinueStat
-// pub struct BreakStat
 
 
 // IMPLS
@@ -320,31 +316,51 @@ impl AstNode for ForStat {
 
 impl Statement for ForStat {
     fn run(&self, state: &mut Scope, f: &FuncMap) -> Signal {
-        let l = match self.list.eval(state, f) {
+        match self.list.eval(state, f) {
             Ok(v) => match v {
-                Value::List(l) => l,
+                Value::List(l) => {
+                    state.extend();
+                    state.new_var(&self.e_name, Value::Null);
+
+                    for e in l.borrow().iter() {
+                        state.set_var(&self.e_name, e.clone());
+
+                        match self.loop_body.run(state, f) {
+                            Signal::Done => {},
+                            Signal::Continue => {},
+                            Signal::Break => break,
+                            s => {state.reduce(); return s},
+                        }
+                    }
+
+                    state.reduce();
+
+                    Signal::Done
+                },
+                /*Value::Str(s) => {
+                    state.extend();
+                    state.new_var(&self.e_name, Value::Null);
+
+                    for e in l.borrow().iter() {
+                        state.set_var(&self.e_name, e.clone());
+
+                        match self.loop_body.run(state, f) {
+                            Signal::Done => {},
+                            Signal::Continue => {},
+                            Signal::Break => break,
+                            s => {state.reduce(); return s},
+                        }
+                    }
+
+                    state.reduce();
+
+                    Signal::Done
+                },*/
                 _ => return Signal::Error("Type error in for loop list.".to_string()),
             },
             Err(e) => return Signal::Error(e),
-        };
-
-        state.extend();
-        state.new_var(&self.e_name, Value::Null);
-
-        for e in l.borrow().iter() {
-            state.set_var(&self.e_name, e.clone());
-
-            match self.loop_body.run(state, f) {
-                Signal::Done => {},
-                Signal::Continue => {},
-                Signal::Break => break,
-                s => {state.reduce(); return s},
-            }
         }
 
-        state.reduce();
-
-        Signal::Done
     }
 }
 

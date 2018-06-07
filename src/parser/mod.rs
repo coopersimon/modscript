@@ -73,7 +73,7 @@ pub enum Token {
     Comma,
     DoubleColon,
     SemiColon,
-    //Arrow,
+    Arrow,
     Dot,
     LSq,
     RSq,

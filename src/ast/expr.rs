@@ -1,5 +1,5 @@
 use super::{Expr, AstNode};
-use runtime::{Value, Scope, ExprRes, expr_err, FuncMap};
+use runtime::{Value, Scope, ExprRes, expr_err, FuncMap, core_func_call};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,8 +9,8 @@ pub enum ValExpr {
     Var(String),
     Int(i64),
     Float(f64),
-    Text(String),
     Bool(bool),
+    Text(String),
     List(Vec<Box<Expr>>),
 }
 
@@ -113,6 +113,12 @@ pub struct FuncCall {
     args: Vec<Box<Expr>>,
 }
 
+pub struct CoreFuncCall {
+    name: String,
+    base: Box<Expr>,
+    args: Vec<Box<Expr>>,
+}
+
 /*pub struct IdChain {
     chain: Vec<String>,
     end_func: Option<FuncCall>,
@@ -136,8 +142,12 @@ impl Expr for ValExpr {
             &ValExpr::Var(ref n) => state.get_var(&n),
             &ValExpr::Int(ref v) => Ok(Value::Int(v.clone())),
             &ValExpr::Float(ref v) => Ok(Value::Float(v.clone())),
-            &ValExpr::Text(ref v) => Ok(Value::Str(v.clone())),
             &ValExpr::Bool(ref v) => Ok(Value::Bool(v.clone())),
+            &ValExpr::Text(ref v) => Ok(Value::Str(v.clone())),
+            /*&ValExpr::Text(ref v) => {
+                let r = Rc::new(RefCell::new(v.clone()));
+                Ok(Value::Str(r))
+            },*/
             &ValExpr::List(ref l) => {
                 let r = Rc::new(RefCell::new(Vec::new()));
                 for expr in l.iter() {
@@ -183,6 +193,16 @@ impl Expr for IndexExpr {
                     expr_err("Index access out of bounds.")
                 }
             },
+            /*(Str(s),Int(i)) => {
+                let text = s.borrow();
+                /*if (i >= 0) && ((i as usize) < text.len()) {
+                    Ok(list[i as usize].clone())
+                } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
+                    Ok(list[((list.len() as i64) + i) as usize].clone())
+                } else {
+                    expr_err("Index access out of bounds.")
+                }*/
+            },*/
             (List(_),_) => expr_err("Index access type error: can't index without int."),
             (a,Int(_)) => expr_err(&format!("Index access type error: can't index non-list object {}.", a)),
             (_,_) => expr_err("Index access type error."),
@@ -848,6 +868,40 @@ impl Expr for FuncCall {
         }
 
         f.call_fn(&self.package, &self.name, &func_args)
+    }
+}
+
+
+impl CoreFuncCall {
+    pub fn new(n: &str, b: Box<Expr>, a: Vec<Box<Expr>>) -> Self {
+        CoreFuncCall {
+            name: n.to_string(),
+            base: b,
+            args: a,
+        }
+    }
+}
+
+impl AstNode for CoreFuncCall {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for CoreFuncCall {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        let base = self.base.eval(state, f)?;
+
+        let mut func_args = Vec::new();
+
+        for a in &self.args {
+            match a.eval(state, f) {
+                Ok(v) => func_args.push(v),
+                e => return e,
+            }
+        }
+
+        core_func_call(&self.name, base, &func_args)
     }
 }
 

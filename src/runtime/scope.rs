@@ -47,19 +47,6 @@ impl Scope {
         for t in self.vars.iter_mut().rev() {
             match t.contains_key(name) {
                 true => {t.insert(name.to_string(), val); return Signal::Done},
-                /*true => {
-                    match val {
-                        Value::RawList(l) => {
-                            let heap_val = Ref::new(l);
-                            t.insert(name.to_string(), heap_val);
-                            Signal::Done
-                        },
-                        v => {
-                            t.insert(name.to_string(), val);
-                            Signal::Done
-                        },
-                    }
-                },*/
                 false => {},
             }
         }

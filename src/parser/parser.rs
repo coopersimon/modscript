@@ -139,7 +139,6 @@ named!(p_stat_list<&[Token], Vec<Box<Statement> > >,
 named!(p_stat<&[Token], Box<Statement> >,
     alt!(
         p_scope         |
-        //p_expr_stat   |
         p_return_stat   |
         p_if_stat       |
         p_while_stat    |
@@ -147,7 +146,8 @@ named!(p_stat<&[Token], Box<Statement> >,
         p_continue_stat |
         p_break_stat    |
         p_decl_stat     |
-        p_assign_stat
+        p_assign_stat   |
+        p_expr_stat
     )
 );
 
@@ -157,14 +157,6 @@ named!(p_scope<&[Token], Box<Statement> >,
         stats: p_stat_list              >>
         apply!(compare, Token::RBrac)   >>
         (Box::new(ScopeStat::new(stats)))
-    )
-);
-
-named!(p_expr_stat<&[Token], Box<Statement> >,
-    do_parse!(
-        expr: p_expr                        >>
-        apply!(compare, Token::SemiColon)   >>
-        (Box::new(ExprStat::new(expr)))
     )
 );
 
@@ -282,6 +274,14 @@ named!(p_assign_stat<&[Token], Box<Statement> >,
         )                                   >>*/
         apply!(compare, Token::SemiColon)   >>
         (Box::new(AssignStat::new(&var, expr)))
+    )
+);
+
+named!(p_expr_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        expr: complete!(p_expr)             >>
+        apply!(compare, Token::SemiColon)   >>
+        (Box::new(ExprStat::new(expr)))
     )
 );
 

@@ -85,7 +85,7 @@ fn p_path<'a>(package: &String, input: &'a [Token]) -> ExprRes<'a> {
 }
 
 // Assuming input[0] has already been matched as LPar
-fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
+/*fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 3 {
         Err(Err::Incomplete(Needed::Size(3)))
     } else { match (&input[1], &input[2]) {
@@ -111,6 +111,19 @@ fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprR
             Err(e) => Err(e),
         },
     }}
+}*/
+
+// Assuming input[0] has already been matched as LPar
+fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 3 {
+        Err(Err::Incomplete(Needed::Size(3)))
+    } else { match input[1] {
+        Token::RPar => p_post_op(&input[2..], Box::new(FuncCall::new(package,name,Vec::new()))),
+        _ => match p_expr_list(&input[0..], Vec::new(), Token::RPar) {
+            Ok((ir,args)) => p_post_op(ir, Box::new(FuncCall::new(package,name,args))),
+            Err(e) => Err(e),
+        },
+    }}
 }
 
 // Assuming input[0] has already been matched as LPar or comma or LSq
@@ -132,6 +145,20 @@ fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<Expr>>, term: Token) -
     }}
 }
 
+// Assuming input[0] has already been matched as Arrow
+fn p_core_func<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
+    if input.len() < 5 {
+        Err(Err::Incomplete(Needed::Size(5)))
+    } else { match (&input[1], &input[2], &input[3]) {
+        (&Token::Id(ref n), &Token::LPar, &Token::RPar) => p_post_op(&input[4..],Box::new(CoreFuncCall::new(n,first,Vec::new()))),
+        (&Token::Id(ref n), &Token::LPar, _) => match p_expr_list(&input[2..],Vec::new(),Token::RPar) {
+            Ok((ir,args)) => p_post_op(ir,Box::new(CoreFuncCall::new(n,first,args))),
+            Err(e) => Err(e),
+        },
+        (_,_,_) => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+    }}
+}
+
 fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     if input.len() < 1 {
         Err(Err::Incomplete(Needed::Size(1)))
@@ -149,8 +176,8 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
                 e => e,
             }}
         },
-        //Token::Arrow
-        _ => Ok((&input, first))
+        Token::Arrow => p_core_func(input, first),
+        _ => Ok((&input, first)),
     }}
 }
 
@@ -158,48 +185,32 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
-        Token::IntLit(i) => Ok((&input[1..], Box::new(ValExpr::Int(i)))),
-        Token::FloatLit(f) => Ok((&input[1..], Box::new(ValExpr::Float(f)))),
-        Token::StrLit(ref s) => Ok((&input[1..], Box::new(ValExpr::Text(s.clone())))),
-        Token::True => Ok((&input[1..], Box::new(ValExpr::Bool(true)))),
+        Token::IntLit(i) => p_post_op(&input[1..], Box::new(ValExpr::Int(i))),
+        Token::FloatLit(f) => p_post_op(&input[1..], Box::new(ValExpr::Float(f))),
+        Token::StrLit(ref s) => p_post_op(&input[1..], Box::new(ValExpr::Text(s.clone()))),
+        Token::True => Ok((&input[1..], Box::new(ValExpr::Bool(true)))),    //TODO: can you post-op true/false?
         Token::False => Ok((&input[1..], Box::new(ValExpr::Bool(false)))),
         Token::LPar => match p_expr(&input[1..]) {
             Ok((ir,expr)) => {
                 if ir.len() < 2 {
                     Err(Err::Incomplete(Needed::Size(2)))
                 } else { match ir[0] {
-                    Token::RPar => Ok((&ir[1..], expr)),
+                    Token::RPar => p_post_op(&ir[1..], expr),
                     _ => Err(Err::Error(Context::Code(ir, ErrorKind::Custom(100)))),
                 }}
             },
             e => e,
         },
         Token::LSq => match input[1] {
-            Token::RSq => Ok((&input[2..], Box::new(ValExpr::List(Vec::new())))), // TODO: check size
+            Token::RSq => p_post_op(&input[2..], Box::new(ValExpr::List(Vec::new()))), // TODO: check size
             _ => match p_expr_list(&input, Vec::new(), Token::RSq) {
-                Ok((ir,exprs)) => Ok((ir, Box::new(ValExpr::List(exprs)))),
+                Ok((ir,exprs)) => p_post_op(ir, Box::new(ValExpr::List(exprs))),
                 Err(e) => Err(e),
             },
         },
         Token::Id(ref n) => match input[1] {
-            /*Token::LSq => {
-                if input.len() < 3 {
-                    Err(Err::Incomplete(Needed::Size(3)))
-                } else { match p_expr(&input[2..]) {
-                    Ok((ir,expr)) => {
-                        if ir.len() < 2 {
-                            Err(Err::Incomplete(Needed::Size(100)))
-                        } else { match ir[0] {
-                            Token::RSq => Ok((&ir[1..],Box::new(IndexExpr::new(n.clone(),expr)))),
-                            _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
-                        }}
-                    },
-                    e => e,
-                }}
-            },*/
             Token::LPar => p_func_call(n, &get_package_ref(None), &input[1..]),
             Token::DoubleColon => p_path(&get_package_ref(Some(n)), &input[2..]), // TODO: check size, avoid clone
-            //_ => Ok((&input[1..], Box::new(ValExpr::Var(n.clone())))),
             _ => p_post_op(&input[1..], Box::new(ValExpr::Var(n.clone()))),
         },
         _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
