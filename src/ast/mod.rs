@@ -39,6 +39,10 @@ impl Script {
 
         self.stat.run(&mut state, funcs)
     }
+
+    pub fn repl_run(&self, state: &mut Scope, funcs: &FuncMap) -> Signal {
+        self.stat.run(state, funcs)
+    }
 }
 
 
