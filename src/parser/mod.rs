@@ -71,6 +71,7 @@ pub enum Token {
     LPar,
     RPar,
     Comma,
+    Colon,
     DoubleColon,
     SemiColon,
     Arrow,

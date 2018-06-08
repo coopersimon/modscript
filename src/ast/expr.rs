@@ -3,6 +3,7 @@ use runtime::{Value, Scope, ExprRes, expr_err, FuncMap, core_func_call};
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 macro_rules! refstr {
     ($s:expr) => {
@@ -18,11 +19,17 @@ pub enum ValExpr {
     Bool(bool),
     Text(String),
     List(Vec<Box<Expr>>),
+    Obj(Vec<(String,Box<Expr>)>),
 }
 
 pub struct IndexExpr {
     base: Box<Expr>,
     index: Box<Expr>,
+}
+
+pub struct AccessExpr {
+    base: Box<Expr>,
+    access_id: String,
 }
 
 pub struct AddExpr {
@@ -125,11 +132,6 @@ pub struct CoreFuncCall {
     args: Vec<Box<Expr>>,
 }
 
-/*pub struct IdChain {
-    chain: Vec<String>,
-    end_func: Option<FuncCall>,
-}*/
-
 
 // IMPLS
 
@@ -149,7 +151,6 @@ impl Expr for ValExpr {
             &ValExpr::Int(ref v) => Ok(Value::Int(v.clone())),
             &ValExpr::Float(ref v) => Ok(Value::Float(v.clone())),
             &ValExpr::Bool(ref v) => Ok(Value::Bool(v.clone())),
-            //&ValExpr::Text(ref v) => Ok(Value::Str(v.clone())),
             &ValExpr::Text(ref v) => {
                 let r = Rc::new(RefCell::new(v.clone()));
                 Ok(Value::Str(r))
@@ -161,6 +162,14 @@ impl Expr for ValExpr {
                     r.borrow_mut().push(el);
                 }
                 Ok(Value::List(r))
+            },
+            &ValExpr::Obj(ref o) => {
+                let r = Rc::new(RefCell::new(BTreeMap::new()));
+                for &(ref n, ref expr) in o.iter() {
+                    let el = expr.eval(state, f)?;
+                    r.borrow_mut().insert(n.clone(), el);
+                }
+                Ok(Value::Obj(r))
             },
         }
     }
@@ -185,10 +194,10 @@ impl AstNode for IndexExpr {
 impl Expr for IndexExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
-        let n = self.base.eval(state, f)?;
+        let l = self.base.eval(state, f)?;
         let i = self.index.eval(state, f)?;
 
-        match (n,i) {
+        match (l,i) {
             (List(l),Int(i)) => {
                 let list = l.borrow();
                 if (i >= 0) && ((i as usize) < list.len()) {
@@ -212,6 +221,40 @@ impl Expr for IndexExpr {
             (List(_),_) => expr_err("Index access type error: can't index without int."),
             (a,Int(_)) => expr_err(&format!("Index access type error: can't index non-list object {}.", a)),
             (_,_) => expr_err("Index access type error."),
+        }
+    }
+}
+
+
+impl AccessExpr {
+    pub fn new(b: Box<Expr>, a: &str) -> Self {
+        AccessExpr {
+            base: b,
+            access_id: a.to_string(),
+        }
+    }
+}
+
+impl AstNode for AccessExpr {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for AccessExpr {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        use Value::*;
+        let o = self.base.eval(state, f)?;
+
+        match o {
+            Obj(o) => {
+                let obj = o.borrow();
+                match obj.get(&self.access_id) {
+                    Some(v) => Ok(v.clone()),
+                    None => expr_err("Access object error: field does not exist."),
+                }
+            },
+            _ => expr_err("Access object type error."),
         }
     }
 }

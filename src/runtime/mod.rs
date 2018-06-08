@@ -9,6 +9,7 @@ pub use self::core::core_func_call;
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 
 use std::fmt;
 
@@ -22,6 +23,7 @@ pub enum Value {
     Bool(bool),
     Str(Ref< String >),
     List(Ref< Vec<Value> >),
+    Obj(Ref< BTreeMap<String,Value> >),
     Null,
 }
 
@@ -38,10 +40,25 @@ impl fmt::Display for Value {
             &Value::List(ref l) => {
                 let l = l.borrow();
                 write!(f, "[")?;
-                for e in l.iter() {
-                    write!(f, "{}, ", e)?;
+                if l.len() > 0 {
+                    for e in l.iter().take(l.len()-1) {
+                        write!(f, "{}, ", e)?;
+                    }
+                    write!(f, "{}", l.last().unwrap())?;
                 }
                 write!(f, "]")
+            },
+            &Value::Obj(ref o) => {
+                let o = o.borrow();
+                write!(f, "object{{")?;
+                if o.len() > 0 {
+                    for (k,v) in o.iter().take(o.len()-1) {
+                        write!(f, "{}: {}, ", k, v)?;
+                    }
+                    let (k,v) = o.iter().skip(o.len()-1).next().unwrap();
+                    write!(f, "{}: {}", k, v)?;
+                }
+                write!(f, "}}")
             },
             &Value::Null => write!(f, "null"),
         }

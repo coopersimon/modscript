@@ -120,6 +120,7 @@ named!(p_punctuators<&str, Token>,
         value!(Token::Comma, tag!(","))         |
         value!(Token::SemiColon, tag!(";"))     |
         value!(Token::DoubleColon, tag!("::"))  |
+        value!(Token::Colon, tag!(":"))         |
         value!(Token::Arrow, tag!("->"))
     )
 );

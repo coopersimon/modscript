@@ -19,6 +19,7 @@ macro_rules! op_match {
                     Token::SemiColon |
                     Token::RPar |
                     Token::LBrac |
+                    Token::RBrac |
                     Token::RSq |
                     Token::Comma => Ok((ir, Box::new($ast($first,expr)))),
                     _ => p_op(Box::new($ast($first,expr)), ir),
@@ -40,6 +41,7 @@ pub fn p_expr<'a>(input: &'a [Token]) -> ExprRes<'a> {
                 Token::SemiColon |
                 Token::RPar |
                 Token::LBrac |
+                Token::RBrac |
                 Token::RSq |
                 Token::Comma => Ok((ir,expr)),
                 _ => p_op(expr, ir),
@@ -145,6 +147,16 @@ fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<Expr>>, term: Token) -
     }}
 }
 
+// Assuming input[0] has already been matched as Dot
+fn p_access<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
+    if input.len() < 3 {
+        Err(Err::Incomplete(Needed::Size(3)))
+    } else { match input[1] {
+        Token::Id(ref n) => p_post_op(&input[2..], Box::new(AccessExpr::new(first,n))),
+        _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+    }}
+}
+
 // Assuming input[0] has already been matched as Arrow
 fn p_core_func<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     if input.len() < 5 {
@@ -177,7 +189,41 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
             }}
         },
         Token::Arrow => p_core_func(input, first),
+        Token::Dot => p_access(input, first),
         _ => Ok((&input, first)),
+    }}
+}
+
+fn p_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
+    if input.len() < 3 {
+        Err(Err::Incomplete(Needed::Size(3)))
+    } else { match (&input[0],input[1] == split) {
+        (&Token::Id(ref n), true) => match p_expr(&input[2..]) {
+            Ok((ir,expr)) => Ok((ir,(n.clone(),expr))),
+            Err(e) => Err(e),
+        },
+        (_,_) => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+    }}
+}
+
+fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprRes<'a> {
+    if input.len() < 2 {
+        Err(Err::Incomplete(Needed::Size(2)))
+    } else { match input[0] {
+        Token::RBrac => Ok((&input[1..], Box::new(ValExpr::Obj(items)))),
+        _ => match p_pair(&input[0..], Token::Colon) {
+            Ok((ir,res)) => {
+                items.push(res);
+                if ir.len() < 2 {
+                    Err(Err::Incomplete(Needed::Size(2)))
+                } else { match ir[0] {
+                    Token::RBrac => Ok((&ir[1..], Box::new(ValExpr::Obj(items)))),
+                    Token::Comma => p_object(&ir[1..], items),
+                    _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+                }}
+            },
+            Err(e) => Err(e),
+        },
     }}
 }
 
@@ -208,6 +254,7 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
                 Err(e) => Err(e),
             },
         },
+        Token::LBrac => p_object(&input[1..], Vec::new()),
         Token::Id(ref n) => match input[1] {
             Token::LPar => p_func_call(n, &get_package_ref(None), &input[1..]),
             Token::DoubleColon => p_path(&get_package_ref(Some(n)), &input[2..]), // TODO: check size, avoid clone

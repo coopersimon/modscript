@@ -11,8 +11,7 @@ Call core functions using `->`. Example:
 ```
 
 ## TODO
-* Add assign to list components
-* Add object types
+* Add assign to list and object components
 * Add pair type
 * Add mutable arguments in functions
 * Local import statements
