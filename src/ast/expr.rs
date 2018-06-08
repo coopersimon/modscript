@@ -200,13 +200,23 @@ impl Expr for IndexExpr {
         match (l,i) {
             (List(l),Int(i)) => {
                 let list = l.borrow();
-                if (i >= 0) && ((i as usize) < list.len()) {
+                /*if (i >= 0) && ((i as usize) < list.len()) {
                     Ok(list[i as usize].clone())
                 } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
                     Ok(list[((list.len() as i64) + i) as usize].clone())
                 } else {
                     expr_err("Index access out of bounds.")
-                }
+                }*/
+
+                let index = if (i >= 0) && ((i as usize) < list.len()) {
+                    i as usize
+                } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
+                    ((list.len() as i64) + i) as usize
+                } else {
+                    return expr_err("Index access out of bounds.")
+                };
+
+                Ok(list[index].clone())
             },
             /*(Str(s),Int(i)) => {
                 let text = s.borrow();

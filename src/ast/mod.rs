@@ -1,9 +1,11 @@
 // scripting engine ast
 mod stat;
 mod expr;
+mod assign;
 
 pub use self::stat::*;
 pub use self::expr::*;
+pub use self::assign::*;
 
 use runtime::{Value, Scope, ExprRes, expr_err, Signal, FuncMap, PackageRoot};
 
@@ -20,6 +22,10 @@ pub trait Expr: AstNode {
 
 pub trait Statement: AstNode {
     fn run(&self, &mut Scope, &FuncMap) -> Signal;
+}
+
+pub trait Assign: AstNode {
+    fn assign(&self, Value, Value, &mut Scope, &FuncMap) -> Signal;
 }
 
 // AST entry point for script snippet

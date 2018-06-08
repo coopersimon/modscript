@@ -1,4 +1,4 @@
-use super::{AstNode, Statement, Expr};
+use super::{AstNode, Statement, Expr, Assign};
 use runtime::{Value, Scope, Signal, FuncMap};
 
 pub struct ScopeStat {
@@ -13,6 +13,7 @@ pub struct VarDecl {
 pub struct AssignStat {
     name: String,
     assign: Box<Expr>,
+    child_op: Option<Box<Assign>>,
 }
 
 pub struct ExprStat {
@@ -116,10 +117,11 @@ impl Statement for VarDecl {
 
 
 impl AssignStat {
-    pub fn new(n: &str, a: Box<Expr>) -> Self {
+    pub fn new(n: &str, a: Box<Expr>, c: Option<Box<Assign>>) -> Self {
         AssignStat {
             name: n.to_string(),
             assign: a,
+            child_op: c,
         }
     }
 }
@@ -132,12 +134,20 @@ impl AstNode for AssignStat {
 
 impl Statement for AssignStat {
     fn run(&self, state: &mut Scope, f: &FuncMap) -> Signal {
+        let var = match state.get_var(&self.name) {
+            Ok(v) => v,
+            Err(e) => return Signal::Error(e),
+        };
+
         let val = match self.assign.eval(state, f) {
             Ok(v) => v,
             Err(e) => return Signal::Error(e),
         };
 
-        state.set_var(&self.name, val)
+        match self.child_op {
+            Some(ref o) => o.assign(var, val, state, f),
+            None    => state.set_var(&self.name, val),
+        }
     }
 }
 

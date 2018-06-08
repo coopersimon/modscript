@@ -265,15 +265,28 @@ named!(p_decl_stat<&[Token], Box<Statement> >,
 named!(p_assign_stat<&[Token], Box<Statement> >,
     do_parse!(
         var: is_id                          >>
-        //expr: apply!(p_assign_expr, &var)   >>
-        expr: apply!(assign_op, &var)   >>
-        /*expr: do_parse!(
-            apply!(compare, Token::Assign)  >>
-            e: p_expr                       >>
-            (e)
-        )                                   >>*/
+        child_op: opt!(p_assign_op_chain)   >>
+        expr: apply!(assign_op, &var)       >>
         apply!(compare, Token::SemiColon)   >>
-        (Box::new(AssignStat::new(&var, expr)))
+        (Box::new(AssignStat::new(&var, expr, child_op)))
+    )
+);
+
+named!(p_assign_op_chain<&[Token], Box<Assign> >,
+    alt!(
+        do_parse!(
+            apply!(compare, Token::LSq)         >>
+            e: p_expr                           >>
+            apply!(compare, Token::RSq)         >>
+            child_op: opt!(p_assign_op_chain)   >>
+            (Box::new(IndexAssign::new(e, child_op)) as Box<Assign>)
+        )   |
+        do_parse!(
+            apply!(compare, Token::Dot)         >>
+            id: is_id                           >>
+            child_op: opt!(p_assign_op_chain)   >>
+            (Box::new(AccessAssign::new(&id, child_op)) as Box<Assign>)
+        )
     )
 );
 
