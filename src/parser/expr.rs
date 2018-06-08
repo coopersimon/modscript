@@ -16,11 +16,20 @@ macro_rules! op_match {
                 if ir.len() < 1 {
                     Err(Err::Incomplete(Needed::Size(1)))
                 } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::LBrac |
-                    Token::RBrac |
-                    Token::RSq |
+                    Token::SemiColon    |
+                    Token::RPar         |
+                    Token::LBrac        |
+                    Token::RBrac        |
+                    Token::RSq          |
+                    Token::AsnPlus      |
+                    Token::AsnMinus     |
+                    Token::AsnTimes     |
+                    Token::AsnDivide    |
+                    Token::AsnModulo    |
+                    Token::AsnOr        |
+                    Token::AsnXor       |
+                    Token::AsnAnd       |
+                    Token::Assign       |
                     Token::Comma => Ok((ir, Box::new($ast($first,expr)))),
                     _ => p_op(Box::new($ast($first,expr)), ir),
                 }}
@@ -38,11 +47,20 @@ pub fn p_expr<'a>(input: &'a [Token]) -> ExprRes<'a> {
             if ir.len() < 1 {
                 Err(Err::Incomplete(Needed::Size(1)))
             } else { match ir[0] {
-                Token::SemiColon |
-                Token::RPar |
-                Token::LBrac |
-                Token::RBrac |
-                Token::RSq |
+                Token::SemiColon    |
+                Token::RPar         |
+                Token::LBrac        |
+                Token::RBrac        |
+                Token::RSq          |
+                Token::AsnPlus      |
+                Token::AsnMinus     |
+                Token::AsnTimes     |
+                Token::AsnDivide    |
+                Token::AsnModulo    |
+                Token::AsnOr        |
+                Token::AsnXor       |
+                Token::AsnAnd       |
+                Token::Assign       |
                 Token::Comma => Ok((ir,expr)),
                 _ => p_op(expr, ir),
             }}

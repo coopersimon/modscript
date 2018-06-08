@@ -11,8 +11,8 @@ Call core functions using `->`. Example:
 ```
 
 ## TODO
-* Add assign to list and object components
-* Add pair type
+* Fix assignment operators
+* Add pair type(?)
 * Add mutable arguments in functions
 * Local import statements
 * Improve import statements (paths, global imports)
@@ -20,36 +20,37 @@ Call core functions using `->`. Example:
 * Add exceptions
 * Better error messages in parser
 * Better error messages in runtime
+* Iteration for strings and objects
+* Function types & anonymous functions
 
 ### Tidiness
 * Clean expr parser, improve core functions
 
 ### Lower priority
 * Default argument values in functions
-* Function types & anonymous functions
 * Potentially add options for more strict typing
 * Add casting (outside of core functions?)
 
-### Core functions:
-#### Int:
+## Core functions:
+### Int:
 * `to_string()`
 * `to_float()`
 * `abs()`
 
-#### Float:
+### Float:
 * `to_string()`
 * `abs()`
 * `floor()`
 * `ceil()`
 * `round()`
 
-#### String:
+### String:
 * `len()`
 * `clone()`
 * `concat(x)`
 * `parse_num()`
 
-#### List:
+### List:
 * `len()`
 * `clone()`
 * `append(x)`
@@ -57,7 +58,7 @@ Call core functions using `->`. Example:
 * `front()`
 * `back()`
 
-#### Pair:
+### Pair:
 * `first()`
 * `second()`
 
