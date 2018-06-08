@@ -1,18 +1,34 @@
 // Core type functions
 use super::{Value, ExprRes, expr_err};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
     use Value::*;
     match (base_type, func, args.len()) {
-        (Int(i), "to_string",   0) => Ok(Str(i.to_string())),
+        (Int(i), "to_string",   0) => Ok(Str(Rc::new(RefCell::new(i.to_string())))),
         (Int(i), "to_float",    0) => Ok(Float(i as f64)),
         (Int(i), "abs",         0) => Ok(Int(i.abs())),
 
-        (Float(f), "to_string", 0) => Ok(Str(f.to_string())),
+        (Float(f), "to_string", 0) => Ok(Str(Rc::new(RefCell::new(f.to_string())))),
         (Float(f), "abs",       0) => Ok(Float(f.abs())),
         (Float(f), "floor",     0) => Ok(Float(f.floor())),
         (Float(f), "ceil",      0) => Ok(Float(f.ceil())),
         (Float(f), "round",     0) => Ok(Float(f.round())),
+
+        //(Str(ref s), "len",     0) => Ok(
+        (Str(ref s), "clone",   0) => Ok(Str(s.clone())),
+        (Str(ref s), "concat",  1) => match args[0] {
+            Str(ref sb) => {s.borrow_mut().push_str(&*sb.borrow()); Ok(Null)},
+            _           => expr_err("Concat argument must be str."),
+        },
+        (Str(ref s), "parse_num", 0) => match s.borrow().parse::<i64>() {
+            Ok(i)   => Ok(Int(i)),
+            Err(_)  => match s.borrow().parse::<f64>() {
+                Ok(f)   => Ok(Float(f)),
+                Err(_)  => expr_err("Cannot parse string."),
+            },
+        },
 
         (List(ref l), "len",    0) => Ok(Int(l.borrow().len() as i64)),
         (List(ref l), "clone",  0) => Ok(List(l.clone())),

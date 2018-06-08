@@ -4,6 +4,12 @@ use runtime::{Value, Scope, ExprRes, expr_err, FuncMap, core_func_call};
 use std::rc::Rc;
 use std::cell::RefCell;
 
+macro_rules! refstr {
+    ($s:expr) => {
+        Value::Str(Rc::new(RefCell::new($s)))
+    };
+}
+
 // DECLS
 pub enum ValExpr {
     Var(String),
@@ -143,11 +149,11 @@ impl Expr for ValExpr {
             &ValExpr::Int(ref v) => Ok(Value::Int(v.clone())),
             &ValExpr::Float(ref v) => Ok(Value::Float(v.clone())),
             &ValExpr::Bool(ref v) => Ok(Value::Bool(v.clone())),
-            &ValExpr::Text(ref v) => Ok(Value::Str(v.clone())),
-            /*&ValExpr::Text(ref v) => {
+            //&ValExpr::Text(ref v) => Ok(Value::Str(v.clone())),
+            &ValExpr::Text(ref v) => {
                 let r = Rc::new(RefCell::new(v.clone()));
                 Ok(Value::Str(r))
-            },*/
+            },
             &ValExpr::List(ref l) => {
                 let r = Rc::new(RefCell::new(Vec::new()));
                 for expr in l.iter() {
@@ -236,17 +242,17 @@ impl Expr for AddExpr {
         match (a,b) {
             (Int(x),Int(y)) => Ok(Int(x + y)),
             (Int(x),Float(y)) => Ok(Float(x as f64 + y)),
-            (Int(x),Str(y)) => Ok(Str(x.to_string() + &y)),
+            (Int(x),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
             (Float(x),Int(y)) => Ok(Float(x + y as f64)),
             (Float(x),Float(y)) => Ok(Float(x + y)),
-            (Float(x),Str(y)) => Ok(Str(x.to_string() + &y)),
-            (Str(x),Int(y)) => Ok(Str(x + &y.to_string())),
-            (Str(x),Float(y)) => Ok(Str(x + &y.to_string())),
-            (Str(x),Str(y)) => Ok(Str(x + &y)),
-            (Str(x),Bool(true)) => Ok(Str(x + "true")),
-            (Str(x),Bool(false)) => Ok(Str(x + "false")),
-            (Bool(true),Str(y)) => Ok(Str("true".to_string() + &y)),
-            (Bool(false),Str(y)) => Ok(Str("false".to_string() + &y)),
+            (Float(x),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
+            (Str(x),Int(y)) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
+            (Str(x),Float(y)) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
+            (Str(x),Str(y)) => Ok(refstr!(x.borrow().clone() + &*y.borrow())),
+            (Str(x),Bool(true)) => Ok(refstr!(x.borrow().clone() + "true")),
+            (Str(x),Bool(false)) => Ok(refstr!(x.borrow().clone() + "false")),
+            (Bool(true),Str(y)) => Ok(refstr!("true".to_string() + &*y.borrow())),
+            (Bool(false),Str(y)) => Ok(refstr!("false".to_string() + &*y.borrow())),
             (List(x),List(y)) => {
                 let x = x.borrow();
                 let y = y.borrow();
@@ -317,7 +323,7 @@ impl Expr for MulExpr {
             (Int(x),Float(y)) => Ok(Float(x as f64 * y)),
             (Float(x),Int(y)) => Ok(Float(x * y as f64)),
             (Float(x),Float(y)) => Ok(Float(x * y)),
-            (Str(x),Int(y)) => Ok(Str(x.repeat(y as usize))),
+            (Str(x),Int(y)) => Ok(refstr!(x.borrow().repeat(y as usize))),
             (List(x),Int(y)) => {
                 if y < 0 {
                     expr_err("Can't duplicate list by negative value.")
@@ -450,25 +456,25 @@ impl Expr for EqExpr {
         match (a,b) {
             (Int(x),Int(y)) => Ok(Bool(x == y)),
             (Int(x),Float(y)) => Ok(Bool(x == (y as i64))),
-            (Int(x),Str(y)) => Ok(Bool(x.to_string() == y)),
+            (Int(x),Str(y)) => Ok(Bool(x.to_string() == *y.borrow())),
             (Int(0),Bool(true)) => Ok(Bool(false)),
             (Int(0),Bool(false)) => Ok(Bool(true)),
             (Int(_),Bool(true)) => Ok(Bool(true)),
             (Int(_),Bool(false)) => Ok(Bool(false)),
             (Float(x),Int(y)) => Ok(Bool((x as i64) == y)),
             (Float(x),Float(y)) => Ok(Bool(x == y)),
-            (Float(x),Str(y)) => Ok(Bool(x.to_string() == y)),
-            (Str(x),Int(y)) => Ok(Bool(x == y.to_string())),
-            (Str(x),Float(y)) => Ok(Bool(x == y.to_string())),
-            (Str(x),Str(y)) => Ok(Bool(x == y)),
-            (Str(x),Bool(true)) => Ok(Bool(x == "true")),
-            (Str(x),Bool(false)) => Ok(Bool(x == "false")),
+            (Float(x),Str(y)) => Ok(Bool(x.to_string() == *y.borrow())),
+            (Str(x),Int(y)) => Ok(Bool(*x.borrow() == y.to_string())),
+            (Str(x),Float(y)) => Ok(Bool(*x.borrow() == y.to_string())),
+            (Str(x),Str(y)) => Ok(Bool(*x.borrow() == *y.borrow())),
+            (Str(x),Bool(true)) => Ok(Bool(*x.borrow() == "true")),
+            (Str(x),Bool(false)) => Ok(Bool(*x.borrow() == "false")),
             (Bool(true),Int(0)) => Ok(Bool(false)),
             (Bool(false),Int(0)) => Ok(Bool(true)),
             (Bool(true),Int(_)) => Ok(Bool(true)),
             (Bool(false),Int(_)) => Ok(Bool(false)),
-            (Bool(true),Str(y)) => Ok(Bool("true" == y)),
-            (Bool(false),Str(y)) => Ok(Bool("false" == y)),
+            (Bool(true),Str(y)) => Ok(Bool("true" == *y.borrow())),
+            (Bool(false),Str(y)) => Ok(Bool("false" == *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x == y)),
             (Null,Null) => Ok(Bool(true)),
             (_,_) => Ok(Bool(false)),
@@ -502,25 +508,25 @@ impl Expr for NEqExpr {
         match (a,b) {
             (Int(x),Int(y)) => Ok(Bool(x != y)),
             (Int(x),Float(y)) => Ok(Bool(x != (y as i64))),
-            (Int(x),Str(y)) => Ok(Bool(x.to_string() != y)),
+            (Int(x),Str(y)) => Ok(Bool(x.to_string() != *y.borrow())),
             (Int(0),Bool(true)) => Ok(Bool(true)),
             (Int(0),Bool(false)) => Ok(Bool(false)),
             (Int(_),Bool(true)) => Ok(Bool(false)),
             (Int(_),Bool(false)) => Ok(Bool(true)),
             (Float(x),Int(y)) => Ok(Bool((x as i64) != y)),
             (Float(x),Float(y)) => Ok(Bool(x != y)),
-            (Float(x),Str(y)) => Ok(Bool(x.to_string() != y)),
-            (Str(x),Int(y)) => Ok(Bool(x != y.to_string())),
-            (Str(x),Float(y)) => Ok(Bool(x != y.to_string())),
-            (Str(x),Str(y)) => Ok(Bool(x != y)),
-            (Str(x),Bool(true)) => Ok(Bool(x != "true")),
-            (Str(x),Bool(false)) => Ok(Bool(x != "false")),
+            (Float(x),Str(y)) => Ok(Bool(x.to_string() != *y.borrow())),
+            (Str(x),Int(y)) => Ok(Bool(*x.borrow() != y.to_string())),
+            (Str(x),Float(y)) => Ok(Bool(*x.borrow() != y.to_string())),
+            (Str(x),Str(y)) => Ok(Bool(*x.borrow() != *y.borrow())),
+            (Str(x),Bool(true)) => Ok(Bool(*x.borrow() != "true")),
+            (Str(x),Bool(false)) => Ok(Bool(*x.borrow() != "false")),
             (Bool(true),Int(0)) => Ok(Bool(true)),
             (Bool(false),Int(0)) => Ok(Bool(false)),
             (Bool(true),Int(_)) => Ok(Bool(false)),
             (Bool(false),Int(_)) => Ok(Bool(true)),
-            (Bool(true),Str(y)) => Ok(Bool("true" != y)),
-            (Bool(false),Str(y)) => Ok(Bool("false" != y)),
+            (Bool(true),Str(y)) => Ok(Bool("true" != *y.borrow())),
+            (Bool(false),Str(y)) => Ok(Bool("false" != *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x != y)),
             (Null,Null) => Ok(Bool(false)),
             (_,_) => Ok(Bool(true)),
@@ -554,7 +560,7 @@ impl Expr for TrueEqExpr {
         match (a,b) {
             (Int(x),Int(y)) => Ok(Bool(x == y)),
             (Float(x),Float(y)) => Ok(Bool(x == y)),
-            (Str(x),Str(y)) => Ok(Bool(x == y)),
+            (Str(x),Str(y)) => Ok(Bool(*x.borrow() == *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x == y)),
             (_,_) => expr_err("Equality check type error."),
         }
@@ -586,7 +592,7 @@ impl Expr for TrueNEqExpr {
         match (a,b) {
             (Int(x),Int(y)) => Ok(Bool(x != y)),
             (Float(x),Float(y)) => Ok(Bool(x != y)),
-            (Str(x),Str(y)) => Ok(Bool(x != y)),
+            (Str(x),Str(y)) => Ok(Bool(*x.borrow() != *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x != y)),
             (_,_) => expr_err("Equality check type error."),
         }
@@ -941,7 +947,12 @@ mod tests {
 
         let add = AddExpr::new(Box::new(ValExpr::Int(25)), Box::new(ValExpr::Text(" twenty five".to_string())));
 
-        assert_eq!(add.eval(&mut state, &f), Ok(Value::Str("25 twenty five".to_string())));
+        let res = match add.eval(&mut state, &f) {
+            Ok(Value::Str(s)) => s.borrow(),
+            Err(e) => panic!("error: {}", e),
+        };
+
+        assert_eq!(res, "25 twenty five".to_string());
     }
 
     #[test]
@@ -951,6 +962,11 @@ mod tests {
 
         let add = AddExpr::new(Box::new(ValExpr::Text("x = ".to_string())), Box::new(ValExpr::Float(3.3)));
 
-        assert_eq!(add.eval(&mut state, &f), Ok(Value::Str("x = 3.3".to_string())));
+        let res = match add.eval(&mut state, &f) {
+            Ok(Value::Str(s)) => s.borrow(),
+            Err(e) => panic!("error: {}", e),
+        };
+
+        assert_eq!(res, "x = 3.3".to_string());
     }
 }

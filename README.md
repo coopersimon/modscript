@@ -5,11 +5,15 @@ Language is very simple at the moment, bears a strong resemblance to JavaScript.
 
 See [msi](https://github.com/coopersimon/msi) for a REPL to test modscript in.
 
+Call core functions using `->`. Example:
+```
+[1,2,3]->len() == 3
+```
+
 ## TODO
 * Add assign to list components
 * Add object types
 * Add pair type
-* Put strings on the heap, add core functions
 * Add mutable arguments in functions
 * Local import statements
 * Improve import statements (paths, global imports)
@@ -59,11 +63,13 @@ See [msi](https://github.com/coopersimon/msi) for a REPL to test modscript in.
 * `second()`
 
 ## Example
-```func factorial(x) {
+```
+func factorial(x) {
     // Simple factorial function.
     if x > 1 {
         return x * factorial(x-1);
     } else {
         return 1;
     }
-}```
+}
+```

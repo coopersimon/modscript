@@ -78,10 +78,6 @@ pub struct FuncRoot {
 impl FuncRoot {
     pub fn new(arg_names: Vec<String>, stat_list: Vec<Box<Statement>>) -> Self {
         FuncRoot {
-            /*arg_names: match arg_names {
-                Some(v) => v,
-                None => Vec::new(),
-            },*/
             arg_names: arg_names,
             stat_list: stat_list,
         }

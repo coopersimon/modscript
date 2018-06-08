@@ -20,10 +20,8 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Str(String),
-    //Str(Ref< String >),
+    Str(Ref< String >),
     List(Ref< Vec<Value> >),
-    //
     Null,
 }
 
@@ -33,11 +31,10 @@ impl fmt::Display for Value {
             &Value::Int(n) => write!(f, "{}", n),
             &Value::Float(n) => write!(f, "{}", n),
             &Value::Bool(b) => write!(f, "{}", b),
-            &Value::Str(ref s) => write!(f, "{}", s),
-            /*&Value::Str(ref s) => {
+            &Value::Str(ref s) => {
                 let s = s.borrow();
                 write!(f, "\"{}\"", s)
-            },*/
+            },
             &Value::List(ref l) => {
                 let l = l.borrow();
                 write!(f, "[")?;
