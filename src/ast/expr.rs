@@ -200,13 +200,6 @@ impl Expr for IndexExpr {
         match (l,i) {
             (List(l),Int(i)) => {
                 let list = l.borrow();
-                /*if (i >= 0) && ((i as usize) < list.len()) {
-                    Ok(list[i as usize].clone())
-                } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
-                    Ok(list[((list.len() as i64) + i) as usize].clone())
-                } else {
-                    expr_err("Index access out of bounds.")
-                }*/
 
                 let index = if (i >= 0) && ((i as usize) < list.len()) {
                     i as usize
@@ -529,6 +522,28 @@ impl Expr for EqExpr {
             (Bool(true),Str(y)) => Ok(Bool("true" == *y.borrow())),
             (Bool(false),Str(y)) => Ok(Bool("false" == *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x == y)),
+            (List(x),List(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if i != j {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
+            (Obj(x),Obj(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if (fa != fb) || (va != vb) {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
             (Null,Null) => Ok(Bool(true)),
             (_,_) => Ok(Bool(false)),
             //(_,_) => expr_err("Equality check type error.".to_string()),
@@ -581,6 +596,28 @@ impl Expr for NEqExpr {
             (Bool(true),Str(y)) => Ok(Bool("true" != *y.borrow())),
             (Bool(false),Str(y)) => Ok(Bool("false" != *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x != y)),
+            (List(x),List(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(true));
+                }
+                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if i != j {
+                        return Ok(Bool(true));
+                    }
+                }
+                Ok(Bool(false))
+            },
+            (Obj(x),Obj(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(true));
+                }
+                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if (fa != fb) || (va != vb) {
+                        return Ok(Bool(true));
+                    }
+                }
+                Ok(Bool(false))
+            },
             (Null,Null) => Ok(Bool(false)),
             (_,_) => Ok(Bool(true)),
             //(_,_) => expr_err("Equality check type error.".to_string()),
@@ -615,6 +652,28 @@ impl Expr for TrueEqExpr {
             (Float(x),Float(y)) => Ok(Bool(x == y)),
             (Str(x),Str(y)) => Ok(Bool(*x.borrow() == *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x == y)),
+            (List(x),List(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if i != j {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
+            (Obj(x),Obj(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if (fa != fb) || (va != vb) {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
             (_,_) => expr_err("Equality check type error."),
         }
     }
@@ -647,6 +706,28 @@ impl Expr for TrueNEqExpr {
             (Float(x),Float(y)) => Ok(Bool(x != y)),
             (Str(x),Str(y)) => Ok(Bool(*x.borrow() != *y.borrow())),
             (Bool(x),Bool(y)) => Ok(Bool(x != y)),
+            (List(x),List(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(true));
+                }
+                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if i != j {
+                        return Ok(Bool(true));
+                    }
+                }
+                Ok(Bool(false))
+            },
+            (Obj(x),Obj(y)) => {
+                if x.borrow().len() != y.borrow().len() {
+                    return Ok(Bool(true));
+                }
+                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if (fa != fb) || (va != vb) {
+                        return Ok(Bool(true));
+                    }
+                }
+                Ok(Bool(false))
+            },
             (_,_) => expr_err("Equality check type error."),
         }
     }

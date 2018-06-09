@@ -268,7 +268,6 @@ named!(p_assign_stat<&[Token], Box<Statement> >,
         var: is_id                          >>
         child_op: opt!(p_assign_op_chain)   >>
         expr: apply!(assign_op, e)          >>
-        //expr: apply!(assign_op, &var)          >>
         apply!(compare, Token::SemiColon)   >>
         (Box::new(AssignStat::new(&var, expr, child_op)))
     )
@@ -300,27 +299,6 @@ named!(p_expr_stat<&[Token], Box<Statement> >,
     )
 );
 
-/*named_args!(p_assign_expr(var: &str)<Box<Expr> >,
-    switch!(take!(1),
-        Token::Assign   => call!(p_expr)    |
-        Token::AsnPlus  => do_parse!(
-            e: p_expr   >>
-            (Box::new(AddExpr::new(Box::new(ValExpr::Var(var)),e)))
-        )                                   |
-        Token::AsnMinus => do_parse!(
-            e: p_expr   >>
-            (Box::new(SubExpr::new(Box::new(ValExpr::Var(var)),e)))
-        )                                   //|
-    )
-);*/
-
-/*macro_rules! assign_expr {
-    ($op_expr:path) => {
-        do_parse!(
-            
-    };
-}*/
-
 named!(p_expr<&[Token], Box<Expr> >,
     call!(super::expr::p_expr)
 );
@@ -336,14 +314,12 @@ macro_rules! assign_expr {
     ($input:ident, $id:ident, $op_expr:path) => {
         match p_expr(&$input[1..]) {
             Ok((ir,expr)) => Ok((ir, Box::new($op_expr($id, expr)))),
-            //Ok((ir,expr)) => Ok((ir, Box::new($op_expr(Box::new(ValExpr::Var($id.to_string())), expr)))),
             e => e,
         }
     };
 }
 
 fn assign_op<'a>(input: &'a [Token], id: Box<Expr>) -> IResult<&'a [Token], Box<Expr>> {
-//fn assign_op<'a>(input: &'a [Token], id: &str) -> IResult<&'a [Token], Box<Expr>> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {

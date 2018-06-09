@@ -35,7 +35,7 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         (List(ref l), "append", 1) => {l.borrow_mut().push(args[0].clone()); Ok(Null)},
         (List(ref l), "concat", 1) => match args[0] {
             List(ref lb) => {l.borrow_mut().extend_from_slice(lb.borrow().as_slice()); Ok(Null)},
-            _            => expr_err("Concat argument must be list."),
+            _            => expr_err("'concat' argument must be list."),
         },
         (List(ref l), "front",  0) => match l.borrow().first() {
             Some(v) => Ok(v.clone()),
@@ -44,6 +44,40 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         (List(ref l), "back",   0) => match l.borrow().last() {
             Some(v) => Ok(v.clone()),
             None    => expr_err("To access back of list, must have length > 0."),
+        },
+
+        (Obj(ref o), "clone",   0) => Ok(Obj(Rc::new(RefCell::new(o.borrow().clone())))),
+        (Obj(ref o), "is_field",1) => match args[0] {
+            Str(ref s) => Ok(Bool(o.borrow().contains_key(&*s.borrow()))),
+            _          => expr_err("'is_field' argument must be string."),
+        },
+        /*(Obj(ref o), "similar", 1) => match args[0] {
+            Obj(ref ob) => {
+                if o.borrow().len() < ob.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for (fa,fb) in o.borrow().keys().zip(ob.borrow().keys()) {
+                    if fa != fb {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
+            _           => expr_err("'similar' argument must be object."),
+        },*/
+        (Obj(ref o), "same",    1) => match args[0] {
+            Obj(ref ob) => {
+                if o.borrow().len() != ob.borrow().len() {
+                    return Ok(Bool(false));
+                }
+                for (fa,fb) in o.borrow().keys().zip(ob.borrow().keys()) {
+                    if fa != fb {
+                        return Ok(Bool(false));
+                    }
+                }
+                Ok(Bool(true))
+            },
+            _           => expr_err("'same' argument must be object."),
         },
 
         (_,_,_) => expr_err("Invalid core call."),

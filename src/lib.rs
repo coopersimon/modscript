@@ -6,7 +6,7 @@ mod runtime;
 mod parser;
 
 pub use ast::{ScriptPackage, Script};
-pub use runtime::{Value, Signal, ExprRes, FuncMap, Scope};
+pub use runtime::{Value, Signal, ExprRes, expr_err, FuncMap, Scope};
 use parser::{tokenise, parse_package, parse_snippet};
 
 use std::fs::File;

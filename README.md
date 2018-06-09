@@ -11,7 +11,6 @@ Call core functions using `->`. Example:
 ```
 
 ## TODO
-* Fix assignment operators
 * Add pair type(?)
 * Add mutable arguments in functions
 * Local import statements
@@ -33,30 +32,37 @@ Call core functions using `->`. Example:
 
 ## Core functions:
 ### Int:
-* `to_string()`
-* `to_float()`
-* `abs()`
+* `to_string()`: converts to string.
+* `to_float()`: converts to float.
+* `abs()`: absolute value.
 
 ### Float:
-* `to_string()`
-* `abs()`
-* `floor()`
-* `ceil()`
-* `round()`
+* `to_string()`: converts to string.
+* `abs()`: absolute value.
+* `floor()`: rounds down to nearest whole.
+* `ceil()`: rounds up to nearest whole.
+* `round()`: rounds to nearest whole.
 
 ### String:
-* `len()`
-* `clone()`
-* `concat(x)`
-* `parse_num()`
+* `len()`: finds length of string in characters (not implemented).
+* `clone()`: copies string into new reference.
+* `concat(x)`: concatenates list onto existing list (more efficient than adding lists together!).
+* `parse_num()`: tries to convert string into int (if possible) or float.
 
 ### List:
-* `len()`
-* `clone()`
-* `append(x)`
-* `concat(x)`
-* `front()`
-* `back()`
+* `len()`: finds length of list.
+* `clone()`: copies list into new reference.
+* `append(x)`: adds element to the end of the list.
+* `concat(x)`: adds list onto the end of the list.
+* `front()`: returns element at the front of the list.
+* `back()`: returns element at the back of the list.
+
+### Object:
+* `clone()`: copies object into new reference.
+* `is_field(x)`: checks if a field (x as string) exists in the object.
+* `similar(x)`: checks if all the fields in the object exist in x (a different object).
+* `same(x)`: checks if all the fields in the two objects are identical.
+Note: `similar` and `same` don't check if the values in the fields are the same. Use `==` for this.
 
 ### Pair:
 * `first()`
