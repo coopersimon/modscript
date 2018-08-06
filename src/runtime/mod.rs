@@ -11,6 +11,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
+use ast::FuncRoot;
+
 use std::fmt;
 
 pub type Ref<T> = Rc<RefCell<T>>;
@@ -24,6 +26,8 @@ pub enum Value {
     Str(Ref< String >),
     List(Ref< Vec<Value> >),
     Obj(Ref< BTreeMap<String,Value> >),
+    Func(Ref< String >, Ref< String >),
+    Closure(Ref< FuncRoot >/*, Ref< Vec<Value> >*/),
     Null,
 }
 
@@ -60,6 +64,12 @@ impl fmt::Display for Value {
                 }
                 write!(f, "}}")
             },
+            &Value::Func(ref p, ref n) => {
+                let p = p.borrow();
+                let n = n.borrow();
+                write!(f, "function{{{}::{}}}", p, n)
+            },
+            &Value::Closure(_) => write!(f, "closure{{}}"),
             &Value::Null => write!(f, "null"),
         }
     }

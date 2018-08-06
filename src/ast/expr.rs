@@ -1,4 +1,4 @@
-use super::{Expr, AstNode};
+use super::{Expr, AstNode, FuncRoot};
 use runtime::{Value, Scope, ExprRes, expr_err, FuncMap, core_func_call};
 
 use std::rc::Rc;
@@ -13,13 +13,15 @@ macro_rules! refstr {
 
 // DECLS
 pub enum ValExpr {
-    Var(String),
+    Id(String),
+    QualId(String, String),
     Int(i64),
     Float(f64),
     Bool(bool),
     Text(String),
     List(Vec<Box<Expr>>),
     Obj(Vec<(String,Box<Expr>)>),
+    Closure(Rc<RefCell<FuncRoot>>),
 }
 
 pub struct IndexExpr {
@@ -121,8 +123,7 @@ pub struct XorExpr {
 }
 
 pub struct FuncCall {
-    package: String,
-    name: String,
+    base: Box<Expr>,
     args: Vec<Box<Expr>>,
 }
 
@@ -147,7 +148,13 @@ impl Expr for ValExpr {
         use std::cell::RefCell;
         //match *self {
         match self {
-            &ValExpr::Var(ref n) => state.get_var(&n),
+            // TODO: function calls to unqualified Id
+            &ValExpr::Id(ref n) => state.get_var(&n),
+            &ValExpr::QualId(ref p, ref n) => {
+                let rp = Rc::new(RefCell::new(p.clone()));
+                let rn = Rc::new(RefCell::new(n.clone()));
+                Ok(Value::Func(rp, rn))
+            },
             &ValExpr::Int(ref v) => Ok(Value::Int(v.clone())),
             &ValExpr::Float(ref v) => Ok(Value::Float(v.clone())),
             &ValExpr::Bool(ref v) => Ok(Value::Bool(v.clone())),
@@ -171,6 +178,7 @@ impl Expr for ValExpr {
                 }
                 Ok(Value::Obj(r))
             },
+            &ValExpr::Closure(ref c) => Ok(Value::Closure(c.clone())),
         }
     }
 }
@@ -981,10 +989,9 @@ impl Expr for XorExpr {
 
 
 impl FuncCall {
-    pub fn new(p: &str, n: &str, a: Vec<Box<Expr>>) -> Self {
+    pub fn new(b: Box<Expr>, a: Vec<Box<Expr>>) -> Self {
         FuncCall {
-            package: p.to_string(),
-            name: n.to_string(),
+            base: b,
             args: a,
         }
     }
@@ -998,6 +1005,8 @@ impl AstNode for FuncCall {
 
 impl Expr for FuncCall {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        let base = self.base.eval(state, f)?;
+
         let mut func_args = Vec::new();
 
         for a in &self.args {
@@ -1007,7 +1016,11 @@ impl Expr for FuncCall {
             }
         }
 
-        f.call_fn(&self.package, &self.name, &func_args)
+        match base {
+            Value::Func(package, name) => f.call_fn(&package.borrow(), &name.borrow(), &func_args),
+            Value::Closure(func) => func.borrow().call(&func_args, f),
+            _ => expr_err("Cannot call non-function value."),
+        }
     }
 }
 

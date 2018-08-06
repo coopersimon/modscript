@@ -3,6 +3,7 @@ use super::resolver::Resolver;
 
 use ast::*;
 //use runtime::Value;
+use std::rc::Rc;
 use std::cell::RefCell;
 
 use std::collections::BTreeMap;
@@ -41,9 +42,10 @@ pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Strin
 
     RESOLVER.with(|r| r.borrow_mut().reset_package_refs());
 
-    Ok(ScriptPackage::new(package))
+    Ok(ScriptPackage::new(/*name, */package))
 }
 
+// TODO: Anonymous functions here?
 pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Script, String> {
     RESOLVER.with(|r| r.borrow_mut().set_package("0"));
 
@@ -300,7 +302,19 @@ named!(p_expr_stat<&[Token], Box<Statement> >,
 );
 
 named!(p_expr<&[Token], Box<Expr> >,
-    call!(super::expr::p_expr)
+    alt!(
+        call!(super::expr::p_expr) |
+        do_parse!(
+            apply!(compare, Token::Func)    >>
+            apply!(compare, Token::LPar)    >>
+            a: p_id_list                    >>
+            apply!(compare, Token::RPar)    >>
+            apply!(compare, Token::LBrac)   >>
+            c: p_func_body                  >>
+            apply!(compare, Token::RBrac)   >>
+            (Box::new(ValExpr::Closure( Rc::new(RefCell::new(FuncRoot::new(a,c))) )) as Box<Expr>)
+        )
+    )
 );
 
 fn p_expr_no_consume<'a>(input: &'a [Token]) -> IResult<&'a [Token], Box<Expr>> {

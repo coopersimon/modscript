@@ -10,6 +10,7 @@ pub use self::assign::*;
 use runtime::{Value, Scope, ExprRes, expr_err, Signal, FuncMap, PackageRoot};
 
 use std::collections::BTreeMap;
+use std::{cmp, fmt};
 
 pub trait AstNode {
     fn print(&self) -> String;
@@ -58,7 +59,7 @@ pub struct ScriptPackage {
 }
 
 impl ScriptPackage {
-    pub fn new(f: BTreeMap<String, FuncRoot>) -> Self {
+    pub fn new(/*n: &str, */f: BTreeMap<String, FuncRoot>) -> Self {
         ScriptPackage {
             funcs: f,
         }
@@ -121,5 +122,17 @@ impl FuncRoot {
 impl AstNode for FuncRoot {
     fn print(&self) -> String {
         "var".to_string()
+    }
+}
+
+impl cmp::PartialEq for FuncRoot {
+    fn eq(&self, _: &FuncRoot) -> bool {
+        false
+    }
+}
+
+impl fmt::Debug for FuncRoot {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "closure")
     }
 }

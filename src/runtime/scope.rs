@@ -1,8 +1,13 @@
 use super::{Value, Signal, ExprRes, expr_err};
 use std::collections::HashMap;
 
+enum Stored {
+    Const(Value),
+    Var(Value),
+}
+
 pub struct Scope {
-    vars: Vec<HashMap<String, Value>>,
+    vars: Vec<HashMap<String, Stored>>,
 }
 
 
@@ -25,7 +30,18 @@ impl Scope {
         match self.vars.last_mut() {
             Some(t) => match t.contains_key(name) {
                 true => Signal::Error("Value already declared.".to_string()),
-                false => {t.insert(name.to_string(), val); Signal::Done},
+                false => {t.insert(name.to_string(), Stored::Var(val)); Signal::Done},
+            },
+            // critical error
+            None => Signal::Error("Internal critical scope error.".to_string()),
+        }
+    }
+
+    pub fn new_const(&mut self, name: &str, val: Value) -> Signal {
+        match self.vars.last_mut() {
+            Some(t) => match t.contains_key(name) {
+                true => Signal::Error("Value already declared.".to_string()),
+                false => {t.insert(name.to_string(), Stored::Const(val)); Signal::Done},
             },
             // critical error
             None => Signal::Error("Internal critical scope error.".to_string()),
@@ -35,7 +51,8 @@ impl Scope {
     pub fn get_var(&self, name: &str) -> ExprRes {
         for t in self.vars.iter().rev() {
             match t.get(name) {
-                Some(v) => return Ok(v.clone()),
+                Some(Stored::Const(v)) => return Ok(v.clone()),
+                Some(Stored::Var(v)) => return Ok(v.clone()),
                 None => {},
             }
         }
@@ -45,9 +62,14 @@ impl Scope {
 
     pub fn set_var(&mut self, name: &str, val: Value) -> Signal {
         for t in self.vars.iter_mut().rev() {
-            match t.contains_key(name) {
+            /*match t.contains_key(name) {
                 true => {t.insert(name.to_string(), val); return Signal::Done},
                 false => {},
+            }*/
+            match t.get(name) {
+                Some(Stored::Const(_)) => return Signal::Error("Cannot redefine constant.".to_string()),
+                Some(Stored::Var(_)) => {t.insert(name.to_string(), Stored::Var(val)); return Signal::Done},
+                None => {},
             }
         }
 

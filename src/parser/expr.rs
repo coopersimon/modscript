@@ -94,58 +94,6 @@ fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
     }}
 }
 
-fn p_path<'a>(package: &String, input: &'a [Token]) -> ExprRes<'a> {
-    if input.len() < 2 {
-        Err(Err::Incomplete(Needed::Size(2)))
-    } else { match input[0] {
-        // TODO: check for fn call vs variable
-        Token::Id(ref n) => p_func_call(n, package, &input[1..]),
-        _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(101)))),
-    }}
-}
-
-// Assuming input[0] has already been matched as LPar
-/*fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
-    if input.len() < 3 {
-        Err(Err::Incomplete(Needed::Size(3)))
-    } else { match (&input[1], &input[2]) {
-        (&Token::RPar, &Token::SemiColon) |
-        (&Token::RPar, &Token::RPar) |
-        (&Token::RPar, &Token::LBrac) |
-        (&Token::RPar, &Token::RSq) |
-        (&Token::RPar, &Token::Comma) => Ok((&input[2..], Box::new(FuncCall::new(package,name,Vec::new())))),
-        (&Token::RPar, _) => p_op(Box::new(FuncCall::new(package,name,Vec::new())),&input[2..]),
-        (_,_) => match p_expr_list(&input[0..], Vec::new(), Token::RPar) {
-            Ok((ir,args)) => {
-                if ir.len() < 1 {
-                    Err(Err::Incomplete(Needed::Size(1)))
-                } else { match ir[0] {
-                    Token::SemiColon |
-                    Token::RPar |
-                    Token::LBrac |
-                    Token::RSq |
-                    Token::Comma => Ok((ir, Box::new(FuncCall::new(package,name,args)))),
-                    _ => p_op(Box::new(FuncCall::new(package,name,args)),ir),
-                }}
-            },
-            Err(e) => Err(e),
-        },
-    }}
-}*/
-
-// Assuming input[0] has already been matched as LPar
-fn p_func_call<'a>(name: &String, package: &String, input: &'a [Token]) -> ExprRes<'a> {
-    if input.len() < 3 {
-        Err(Err::Incomplete(Needed::Size(3)))
-    } else { match input[1] {
-        Token::RPar => p_post_op(&input[2..], Box::new(FuncCall::new(package,name,Vec::new()))),
-        _ => match p_expr_list(&input[0..], Vec::new(), Token::RPar) {
-            Ok((ir,args)) => p_post_op(ir, Box::new(FuncCall::new(package,name,args))),
-            Err(e) => Err(e),
-        },
-    }}
-}
-
 // Assuming input[0] has already been matched as LPar or comma or LSq
 fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<Expr>>, term: Token) -> IResult<&'a [Token], Vec<Box<Expr>>> {
     if input.len() < 3 {
@@ -193,6 +141,17 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     if input.len() < 1 {
         Err(Err::Incomplete(Needed::Size(1)))
     } else { match input[0] {
+        Token::LPar => {
+            if input.len() < 2 {
+                Err(Err::Incomplete(Needed::Size(2)))
+            } else { match input[1] {
+                Token::RPar => p_post_op(&input[2..], Box::new(FuncCall::new(first, Vec::new()))),
+                _ => match p_expr_list(&input[0..], Vec::new(), Token::RPar) {
+                    Ok((ir, args)) => p_post_op(ir, Box::new(FuncCall::new(first, args))),
+                    Err(e) => Err(e),
+                },
+            }}
+        },
         Token::LSq => {
             if input.len() < 2 {
                 Err(Err::Incomplete(Needed::Size(2)))
@@ -274,9 +233,15 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
         },
         Token::LBrac => p_object(&input[1..], Vec::new()),
         Token::Id(ref n) => match input[1] {
-            Token::LPar => p_func_call(n, &get_package_ref(None), &input[1..]),
-            Token::DoubleColon => p_path(&get_package_ref(Some(n)), &input[2..]), // TODO: check size, avoid clone
-            _ => p_post_op(&input[1..], Box::new(ValExpr::Var(n.clone()))),
+            Token::DoubleColon => {
+                if input.len() < 4 {
+                    Err(Err::Incomplete(Needed::Size(4)))
+                } else { match input[2] {
+                    Token::Id(ref n2) => p_post_op(&input[3..], Box::new(ValExpr::QualId(get_package_ref(Some(n)), n2.clone()))),
+                    _ => Err(Err::Error(Context::Code(&input[2..], ErrorKind::Custom(100)))),
+                }}
+            },
+            _ => p_post_op(&input[1..], Box::new(ValExpr::Id(n.clone()))),
         },
         _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
     }}

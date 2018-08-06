@@ -19,7 +19,6 @@ impl Resolver {
     }
 
     pub fn add_package_ref(&mut self, package_ref: &str, package_name: &str) {
-        //println!("Adding ref {}, for {}", package_ref, package_name);
         self.package_refs.insert(package_ref.to_string(), package_name.to_string());
     }
 
