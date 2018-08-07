@@ -95,22 +95,27 @@ impl Scope {
     // For closures
     pub fn get_scope_refs(&mut self) -> Vec<(String, Value)> {
         use Value::*;
-        let mut out = Vec::new();
+        let mut scope = HashMap::new();
         for t in self.vars.iter_mut() {
             for (k,v) in t.iter_mut() {
-                let val = match v {
+                let value = match v {
                     Val(val) => Some(val.clone()),
                     _ => None,
                 };
-                match val {
+                /*match val {
                     Some(val) => {
                         *v = Ref(Rc::new(RefCell::new(val)));
-                        out.push((k.clone(), v.clone()));
+                        out.insert(k.clone(), v.clone());
                     },
-                    None => out.push((k.clone(), v.clone())),
+                    None => out.insert(k.clone(), v.clone()),
+                }*/
+                if let Some(val) = value {
+                    *v = Ref(Rc::new(RefCell::new(val)));
                 }
+                scope.insert(k.clone(), v.clone());
             }
         }
+        let out = scope.drain().collect::<Vec<(String, Value)>>();
         out
     }
 }

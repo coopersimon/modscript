@@ -13,7 +13,7 @@ macro_rules! refstr {
 
 // DECLS
 pub enum ValExpr {
-    Id(String),
+    //Id(String),
     QualId(String, String),
     Ref(String),
     Int(i64),
@@ -151,11 +151,14 @@ impl Expr for ValExpr {
         //match *self {
         match self {
             // TODO: function calls to unqualified Id
-            &ValExpr::Id(ref n) => state.get_var(&n),
-            &ValExpr::QualId(ref p, ref n) => {
-                let rp = Rc::new(RefCell::new(p.clone()));
-                let rn = Rc::new(RefCell::new(n.clone()));
-                Ok(Value::Func(rp, rn))
+            //&ValExpr::Id(ref n) => state.get_var(&n),
+            &ValExpr::QualId(ref p, ref n) => match state.get_var(&n) {
+                Ok(v) => Ok(v),
+                Err(_e) => {
+                    let rp = Rc::new(RefCell::new(p.clone()));
+                    let rn = Rc::new(RefCell::new(n.clone()));
+                    Ok(Value::Func(rp, rn))
+                },
             },
             &ValExpr::Ref(ref n) => state.get_ref(&n),
             &ValExpr::Int(ref v) => Ok(Value::Val(I(v.clone()))),

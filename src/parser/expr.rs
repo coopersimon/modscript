@@ -241,7 +241,7 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
                     _ => Err(Err::Error(Context::Code(&input[2..], ErrorKind::Custom(100)))),
                 }}
             },
-            _ => p_post_op(&input[1..], Box::new(ValExpr::Id(n.clone()))),
+            _ => p_post_op(&input[1..], Box::new(ValExpr::QualId(get_package_ref(None), n.clone()))),
         },
         Token::Ref => match input[1] {
             Token::Id(ref n) => p_post_op(&input[2..], Box::new(ValExpr::Ref(n.clone()))), // TODO: check size

@@ -59,7 +59,7 @@ pub struct ScriptPackage {
 }
 
 impl ScriptPackage {
-    pub fn new(/*n: &str, */f: BTreeMap<String, FuncRoot>) -> Self {
+    pub fn new(f: BTreeMap<String, FuncRoot>) -> Self {
         ScriptPackage {
             funcs: f,
         }

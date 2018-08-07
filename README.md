@@ -12,15 +12,15 @@ Call core functions using `->`. Example:
 
 ## TODO
 * Add pair type(?)
-* Add mutable arguments in functions
 * Local import statements
 * Improve import statements (paths, global imports)
+* Export statements (?)
 * Add `type` function
 * Add exceptions
 * Better error messages in parser
 * Better error messages in runtime
 * Iteration for strings and objects
-* Function types & anonymous functions
+* Fix/remove C-style for loop
 
 ### Tidiness
 * Clean expr parser, improve core functions
