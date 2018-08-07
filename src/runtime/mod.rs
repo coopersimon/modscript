@@ -20,23 +20,36 @@ pub type Ref<T> = Rc<RefCell<T>>;
 // Types
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
+    // Value type
+    Val(VType),
+
+    // Reference value type
+    Ref(Ref< VType >),
+
+    // Reference types
     Str(Ref< String >),
     List(Ref< Vec<Value> >),
     Obj(Ref< BTreeMap<String,Value> >),
     Func(Ref< String >, Ref< String >),
-    Closure(Ref< FuncRoot >/*, Ref< Vec<Value> >*/),
+    Closure(Ref< FuncRoot >, Ref< Vec<(String,Value)> >),
+
+    // Null
     Null,
+}
+
+// Value types
+#[derive(Clone, PartialEq, Debug)]
+pub enum VType {
+    I(i64),
+    F(f64),
+    B(bool),
 }
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Value::Int(n) => write!(f, "{}", n),
-            &Value::Float(n) => write!(f, "{}", n),
-            &Value::Bool(b) => write!(f, "{}", b),
+            &Value::Val(ref v) => write!(f, "{}", v),
+            &Value::Ref(ref v) => write!(f, "{}", v.borrow()),
             &Value::Str(ref s) => {
                 let s = s.borrow();
                 write!(f, "\"{}\"", s)
@@ -69,8 +82,19 @@ impl fmt::Display for Value {
                 let n = n.borrow();
                 write!(f, "function{{{}::{}}}", p, n)
             },
-            &Value::Closure(_) => write!(f, "closure{{}}"),
+            // TODO: make this a bit more verbose
+            &Value::Closure(_,_) => write!(f, "closure{{}}"),
             &Value::Null => write!(f, "null"),
+        }
+    }
+}
+
+impl fmt::Display for VType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &VType::I(n) => write!(f, "{}", n),
+            &VType::F(n) => write!(f, "{}", n),
+            &VType::B(b) => write!(f, "{}", b),
         }
     }
 }

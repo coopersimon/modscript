@@ -1,5 +1,5 @@
 use super::{Expr, AstNode, FuncRoot};
-use runtime::{Value, Scope, ExprRes, expr_err, FuncMap, core_func_call};
+use runtime::{Value, VType, Scope, ExprRes, expr_err, FuncMap, core_func_call};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -15,6 +15,7 @@ macro_rules! refstr {
 pub enum ValExpr {
     Id(String),
     QualId(String, String),
+    Ref(String),
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -146,6 +147,7 @@ impl Expr for ValExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use std::rc::Rc;
         use std::cell::RefCell;
+        use self::VType::*;
         //match *self {
         match self {
             // TODO: function calls to unqualified Id
@@ -155,9 +157,10 @@ impl Expr for ValExpr {
                 let rn = Rc::new(RefCell::new(n.clone()));
                 Ok(Value::Func(rp, rn))
             },
-            &ValExpr::Int(ref v) => Ok(Value::Int(v.clone())),
-            &ValExpr::Float(ref v) => Ok(Value::Float(v.clone())),
-            &ValExpr::Bool(ref v) => Ok(Value::Bool(v.clone())),
+            &ValExpr::Ref(ref n) => state.get_ref(&n),
+            &ValExpr::Int(ref v) => Ok(Value::Val(I(v.clone()))),
+            &ValExpr::Float(ref v) => Ok(Value::Val(F(v.clone()))),
+            &ValExpr::Bool(ref v) => Ok(Value::Val(B(v.clone()))),
             &ValExpr::Text(ref v) => {
                 let r = Rc::new(RefCell::new(v.clone()));
                 Ok(Value::Str(r))
@@ -178,7 +181,10 @@ impl Expr for ValExpr {
                 }
                 Ok(Value::Obj(r))
             },
-            &ValExpr::Closure(ref c) => Ok(Value::Closure(c.clone())),
+            &ValExpr::Closure(ref c) => {
+                let r = Rc::new(RefCell::new(state.get_scope_refs()));
+                Ok(Value::Closure(c.clone(), r))
+            },
         }
     }
 }
@@ -202,11 +208,12 @@ impl AstNode for IndexExpr {
 impl Expr for IndexExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let l = self.base.eval(state, f)?;
         let i = self.index.eval(state, f)?;
 
         match (l,i) {
-            (List(l),Int(i)) => {
+            (List(l),Val(I(i))) => {
                 let list = l.borrow();
 
                 let index = if (i >= 0) && ((i as usize) < list.len()) {
@@ -230,7 +237,7 @@ impl Expr for IndexExpr {
                 }*/
             },*/
             (List(_),_) => expr_err("Index access type error: can't index without int."),
-            (a,Int(_)) => expr_err(&format!("Index access type error: can't index non-list object {}.", a)),
+            (a,Val(I(_))) => expr_err(&format!("Index access type error: can't index non-list object {}.", a)),
             (_,_) => expr_err("Index access type error."),
         }
     }
@@ -288,25 +295,25 @@ impl AstNode for AddExpr {
 
 impl Expr for AddExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
-        use Value::*;
-
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x + y)),
-            (Int(x),Float(y)) => Ok(Float(x as f64 + y)),
-            (Int(x),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
-            (Float(x),Int(y)) => Ok(Float(x + y as f64)),
-            (Float(x),Float(y)) => Ok(Float(x + y)),
-            (Float(x),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
-            (Str(x),Int(y)) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
-            (Str(x),Float(y)) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x + y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 + y))),
+            (Val(I(x)),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
+            (Val(F(x)),Val(I(y))) => Ok(Val(F(x + y as f64))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(F(x + y))),
+            (Val(F(x)),Str(y)) => Ok(refstr!(x.to_string() + &*y.borrow())),
+            (Str(x),Val(I(y))) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
+            (Str(x),Val(F(y))) => Ok(refstr!(x.borrow().clone() + &y.to_string())),
             (Str(x),Str(y)) => Ok(refstr!(x.borrow().clone() + &*y.borrow())),
-            (Str(x),Bool(true)) => Ok(refstr!(x.borrow().clone() + "true")),
-            (Str(x),Bool(false)) => Ok(refstr!(x.borrow().clone() + "false")),
-            (Bool(true),Str(y)) => Ok(refstr!("true".to_string() + &*y.borrow())),
-            (Bool(false),Str(y)) => Ok(refstr!("false".to_string() + &*y.borrow())),
+            (Str(x),Val(B(true))) => Ok(refstr!(x.borrow().clone() + "true")),
+            (Str(x),Val(B(false))) => Ok(refstr!(x.borrow().clone() + "false")),
+            (Val(B(true)),Str(y)) => Ok(refstr!("true".to_string() + &*y.borrow())),
+            (Val(B(false)),Str(y)) => Ok(refstr!("false".to_string() + &*y.borrow())),
             (List(x),List(y)) => {
                 let x = x.borrow();
                 let y = y.borrow();
@@ -337,14 +344,15 @@ impl AstNode for SubExpr {
 impl Expr for SubExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x - y)),
-            (Int(x),Float(y)) => Ok(Float(x as f64 - y)),
-            (Float(x),Int(y)) => Ok(Float(x - y as f64)),
-            (Float(x),Float(y)) => Ok(Float(x - y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x - y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 - y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(F(x - y as f64))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(F(x - y))),
             (_,_) => expr_err("Subtraction type error."),
         }
     }
@@ -369,16 +377,17 @@ impl AstNode for MulExpr {
 impl Expr for MulExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x * y)),
-            (Int(x),Float(y)) => Ok(Float(x as f64 * y)),
-            (Float(x),Int(y)) => Ok(Float(x * y as f64)),
-            (Float(x),Float(y)) => Ok(Float(x * y)),
-            (Str(x),Int(y)) => Ok(refstr!(x.borrow().repeat(y as usize))),
-            (List(x),Int(y)) => {
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x * y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 * y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(F(x * y as f64))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(F(x * y))),
+            (Str(x),Val(I(y))) => Ok(refstr!(x.borrow().repeat(y as usize))),
+            (List(x),Val(I(y))) => {
                 if y < 0 {
                     expr_err("Can't duplicate list by negative value.")
                 } else {
@@ -414,15 +423,16 @@ impl AstNode for DivExpr {
 impl Expr for DivExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (_,Int(0)) => expr_err("Divide by zero error."),
-            (Int(x),Int(y)) => Ok(Int(x / y)),
-            (Int(x),Float(y)) => Ok(Float(x as f64 / y)),
-            (Float(x),Int(y)) => Ok(Float(x / y as f64)),
-            (Float(x),Float(y)) => Ok(Float(x / y)),
+            (_,Val(I(0))) => expr_err("Divide by zero error."),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x / y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 / y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(F(x / y as f64))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(F(x / y))),
             (_,_) => expr_err("Division type error."),
         }
     }
@@ -447,11 +457,12 @@ impl AstNode for ModExpr {
 impl Expr for ModExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x % y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x % y))),
             (_,_) => expr_err("Modulus type error."),
         }
     }
@@ -475,11 +486,12 @@ impl AstNode for NegExpr {
 impl Expr for NegExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.right.eval(state, f)?;
 
         match a {
-            Int(x) => Ok(Int(-x)),
-            Float(x) => Ok(Float(-x)),
+            Val(I(x)) => Ok(Val(I(-x))),
+            Val(F(x)) => Ok(Val(F(-x))),
             _ => expr_err("Negation type error."),
         }
     }
@@ -504,56 +516,57 @@ impl AstNode for EqExpr {
 impl Expr for EqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x == y)),
-            (Int(x),Float(y)) => Ok(Bool(x == (y as i64))),
-            (Int(x),Str(y)) => Ok(Bool(x.to_string() == *y.borrow())),
-            (Int(0),Bool(true)) => Ok(Bool(false)),
-            (Int(0),Bool(false)) => Ok(Bool(true)),
-            (Int(_),Bool(true)) => Ok(Bool(true)),
-            (Int(_),Bool(false)) => Ok(Bool(false)),
-            (Float(x),Int(y)) => Ok(Bool((x as i64) == y)),
-            (Float(x),Float(y)) => Ok(Bool(x == y)),
-            (Float(x),Str(y)) => Ok(Bool(x.to_string() == *y.borrow())),
-            (Str(x),Int(y)) => Ok(Bool(*x.borrow() == y.to_string())),
-            (Str(x),Float(y)) => Ok(Bool(*x.borrow() == y.to_string())),
-            (Str(x),Str(y)) => Ok(Bool(*x.borrow() == *y.borrow())),
-            (Str(x),Bool(true)) => Ok(Bool(*x.borrow() == "true")),
-            (Str(x),Bool(false)) => Ok(Bool(*x.borrow() == "false")),
-            (Bool(true),Int(0)) => Ok(Bool(false)),
-            (Bool(false),Int(0)) => Ok(Bool(true)),
-            (Bool(true),Int(_)) => Ok(Bool(true)),
-            (Bool(false),Int(_)) => Ok(Bool(false)),
-            (Bool(true),Str(y)) => Ok(Bool("true" == *y.borrow())),
-            (Bool(false),Str(y)) => Ok(Bool("false" == *y.borrow())),
-            (Bool(x),Bool(y)) => Ok(Bool(x == y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x == y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B(x == (y as i64)))),
+            (Val(I(x)),Str(y)) => Ok(Val(B(x.to_string() == *y.borrow()))),
+            (Val(I(0)),Val(B(true))) => Ok(Val(B(false))),
+            (Val(I(0)),Val(B(false))) => Ok(Val(B(true))),
+            (Val(I(_)),Val(B(true))) => Ok(Val(B(true))),
+            (Val(I(_)),Val(B(false))) => Ok(Val(B(false))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B((x as i64) == y))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x == y))),
+            (Val(F(x)),Str(y)) => Ok(Val(B(x.to_string() == *y.borrow()))),
+            (Str(x),Val(I(y))) => Ok(Val(B(*x.borrow() == y.to_string()))),
+            (Str(x),Val(F(y))) => Ok(Val(B(*x.borrow() == y.to_string()))),
+            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() == *y.borrow()))),
+            (Str(x),Val(B(true))) => Ok(Val(B(*x.borrow() == "true"))),
+            (Str(x),Val(B(false))) => Ok(Val(B(*x.borrow() == "false"))),
+            (Val(B(true)),Val(I(0))) => Ok(Val(B(false))),
+            (Val(B(false)),Val(I(0))) => Ok(Val(B(true))),
+            (Val(B(true)),Val(I(_))) => Ok(Val(B(true))),
+            (Val(B(false)),Val(I(_))) => Ok(Val(B(false))),
+            (Val(B(true)),Str(y)) => Ok(Val(B("true" == *y.borrow()))),
+            (Val(B(false)),Str(y)) => Ok(Val(B("false" == *y.borrow()))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x == y))),
             (List(x),List(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(false));
+                    return Ok(Val(B(false)));
                 }
                 for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
                     if i != j {
-                        return Ok(Bool(false));
+                        return Ok(Val(B(false)));
                     }
                 }
-                Ok(Bool(true))
+                Ok(Val(B(true)))
             },
             (Obj(x),Obj(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(false));
+                    return Ok(Val(B(false)));
                 }
                 for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
                     if (fa != fb) || (va != vb) {
-                        return Ok(Bool(false));
+                        return Ok(Val(B(false)));
                     }
                 }
-                Ok(Bool(true))
+                Ok(Val(B(true)))
             },
-            (Null,Null) => Ok(Bool(true)),
-            (_,_) => Ok(Bool(false)),
+            (Null,Null) => Ok(Val(B(true))),
+            (_,_) => Ok(Val(B(false))),
             //(_,_) => expr_err("Equality check type error.".to_string()),
         }
     }
@@ -578,56 +591,57 @@ impl AstNode for NEqExpr {
 impl Expr for NEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x != y)),
-            (Int(x),Float(y)) => Ok(Bool(x != (y as i64))),
-            (Int(x),Str(y)) => Ok(Bool(x.to_string() != *y.borrow())),
-            (Int(0),Bool(true)) => Ok(Bool(true)),
-            (Int(0),Bool(false)) => Ok(Bool(false)),
-            (Int(_),Bool(true)) => Ok(Bool(false)),
-            (Int(_),Bool(false)) => Ok(Bool(true)),
-            (Float(x),Int(y)) => Ok(Bool((x as i64) != y)),
-            (Float(x),Float(y)) => Ok(Bool(x != y)),
-            (Float(x),Str(y)) => Ok(Bool(x.to_string() != *y.borrow())),
-            (Str(x),Int(y)) => Ok(Bool(*x.borrow() != y.to_string())),
-            (Str(x),Float(y)) => Ok(Bool(*x.borrow() != y.to_string())),
-            (Str(x),Str(y)) => Ok(Bool(*x.borrow() != *y.borrow())),
-            (Str(x),Bool(true)) => Ok(Bool(*x.borrow() != "true")),
-            (Str(x),Bool(false)) => Ok(Bool(*x.borrow() != "false")),
-            (Bool(true),Int(0)) => Ok(Bool(true)),
-            (Bool(false),Int(0)) => Ok(Bool(false)),
-            (Bool(true),Int(_)) => Ok(Bool(false)),
-            (Bool(false),Int(_)) => Ok(Bool(true)),
-            (Bool(true),Str(y)) => Ok(Bool("true" != *y.borrow())),
-            (Bool(false),Str(y)) => Ok(Bool("false" != *y.borrow())),
-            (Bool(x),Bool(y)) => Ok(Bool(x != y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x != y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B(x != (y as i64)))),
+            (Val(I(x)),Str(y)) => Ok(Val(B(x.to_string() != *y.borrow()))),
+            (Val(I(0)),Val(B(true))) => Ok(Val(B(true))),
+            (Val(I(0)),Val(B(false))) => Ok(Val(B(false))),
+            (Val(I(_)),Val(B(true))) => Ok(Val(B(false))),
+            (Val(I(_)),Val(B(false))) => Ok(Val(B(true))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B((x as i64) != y))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x != y))),
+            (Val(F(x)),Str(y)) => Ok(Val(B(x.to_string() != *y.borrow()))),
+            (Str(x),Val(I(y))) => Ok(Val(B(*x.borrow() != y.to_string()))),
+            (Str(x),Val(F(y))) => Ok(Val(B(*x.borrow() != y.to_string()))),
+            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() != *y.borrow()))),
+            (Str(x),Val(B(true))) => Ok(Val(B(*x.borrow() != "true"))),
+            (Str(x),Val(B(false))) => Ok(Val(B(*x.borrow() != "false"))),
+            (Val(B(true)),Val(I(0))) => Ok(Val(B(true))),
+            (Val(B(false)),Val(I(0))) => Ok(Val(B(false))),
+            (Val(B(true)),Val(I(_))) => Ok(Val(B(false))),
+            (Val(B(false)),Val(I(_))) => Ok(Val(B(true))),
+            (Val(B(true)),Str(y)) => Ok(Val(B("true" != *y.borrow()))),
+            (Val(B(false)),Str(y)) => Ok(Val(B("false" != *y.borrow()))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x != y))),
             (List(x),List(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(true));
+                    return Ok(Val(B(true)));
                 }
                 for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
                     if i != j {
-                        return Ok(Bool(true));
+                        return Ok(Val(B(true)));
                     }
                 }
-                Ok(Bool(false))
+                Ok(Val(B(false)))
             },
             (Obj(x),Obj(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(true));
+                    return Ok(Val(B(true)));
                 }
                 for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
                     if (fa != fb) || (va != vb) {
-                        return Ok(Bool(true));
+                        return Ok(Val(B(true)));
                     }
                 }
-                Ok(Bool(false))
+                Ok(Val(B(false)))
             },
-            (Null,Null) => Ok(Bool(false)),
-            (_,_) => Ok(Bool(true)),
+            (Null,Null) => Ok(Val(B(false))),
+            (_,_) => Ok(Val(B(true))),
             //(_,_) => expr_err("Equality check type error.".to_string()),
         }
     }
@@ -652,35 +666,36 @@ impl AstNode for TrueEqExpr {
 impl Expr for TrueEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x == y)),
-            (Float(x),Float(y)) => Ok(Bool(x == y)),
-            (Str(x),Str(y)) => Ok(Bool(*x.borrow() == *y.borrow())),
-            (Bool(x),Bool(y)) => Ok(Bool(x == y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x == y))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x == y))),
+            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() == *y.borrow()))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x == y))),
             (List(x),List(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(false));
+                    return Ok(Val(B(false)));
                 }
                 for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
                     if i != j {
-                        return Ok(Bool(false));
+                        return Ok(Val(B(false)));
                     }
                 }
-                Ok(Bool(true))
+                Ok(Val(B(true)))
             },
             (Obj(x),Obj(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(false));
+                    return Ok(Val(B(false)));
                 }
                 for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
                     if (fa != fb) || (va != vb) {
-                        return Ok(Bool(false));
+                        return Ok(Val(B(false)));
                     }
                 }
-                Ok(Bool(true))
+                Ok(Val(B(true)))
             },
             (_,_) => expr_err("Equality check type error."),
         }
@@ -706,35 +721,36 @@ impl AstNode for TrueNEqExpr {
 impl Expr for TrueNEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x != y)),
-            (Float(x),Float(y)) => Ok(Bool(x != y)),
-            (Str(x),Str(y)) => Ok(Bool(*x.borrow() != *y.borrow())),
-            (Bool(x),Bool(y)) => Ok(Bool(x != y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x != y))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x != y))),
+            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() != *y.borrow()))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x != y))),
             (List(x),List(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(true));
+                    return Ok(Val(B(true)));
                 }
                 for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
                     if i != j {
-                        return Ok(Bool(true));
+                        return Ok(Val(B(true)));
                     }
                 }
-                Ok(Bool(false))
+                Ok(Val(B(false)))
             },
             (Obj(x),Obj(y)) => {
                 if x.borrow().len() != y.borrow().len() {
-                    return Ok(Bool(true));
+                    return Ok(Val(B(true)));
                 }
                 for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
                     if (fa != fb) || (va != vb) {
-                        return Ok(Bool(true));
+                        return Ok(Val(B(true)));
                     }
                 }
-                Ok(Bool(false))
+                Ok(Val(B(false)))
             },
             (_,_) => expr_err("Equality check type error."),
         }
@@ -760,14 +776,15 @@ impl AstNode for GThanExpr {
 impl Expr for GThanExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x > y)),
-            (Int(x),Float(y)) => Ok(Bool((x as f64) > y)),
-            (Float(x),Int(y)) => Ok(Bool(x > (y as f64))),
-            (Float(x),Float(y)) => Ok(Bool(x > y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x > y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) > y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B(x > (y as f64)))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x > y))),
             (_,_) => expr_err("Greater than type error."),
         }
     }
@@ -792,14 +809,15 @@ impl AstNode for GEqExpr {
 impl Expr for GEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x >= y)),
-            (Int(x),Float(y)) => Ok(Bool((x as f64) >= y)),
-            (Float(x),Int(y)) => Ok(Bool(x >= (y as f64))),
-            (Float(x),Float(y)) => Ok(Bool(x >= y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x >= y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) >= y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B(x >= (y as f64)))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x >= y))),
             (_,_) => expr_err("Greater than or equal to type error."),
         }
     }
@@ -824,14 +842,15 @@ impl AstNode for LThanExpr {
 impl Expr for LThanExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x < y)),
-            (Int(x),Float(y)) => Ok(Bool((x as f64) < y)),
-            (Float(x),Int(y)) => Ok(Bool(x < (y as f64))),
-            (Float(x),Float(y)) => Ok(Bool(x < y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x < y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) < y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B(x < (y as f64)))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x < y))),
             (_,_) => expr_err("Less than type error."),
         }
     }
@@ -856,14 +875,15 @@ impl AstNode for LEqExpr {
 impl Expr for LEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Bool(x <= y)),
-            (Int(x),Float(y)) => Ok(Bool((x as f64) <= y)),
-            (Float(x),Int(y)) => Ok(Bool(x <= (y as f64))),
-            (Float(x),Float(y)) => Ok(Bool(x <= y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(B(x <= y))),
+            (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) <= y))),
+            (Val(F(x)),Val(I(y))) => Ok(Val(B(x <= (y as f64)))),
+            (Val(F(x)),Val(F(y))) => Ok(Val(B(x <= y))),
             (_,_) => expr_err("Less than or equal to type error."),
         }
     }
@@ -887,11 +907,12 @@ impl AstNode for NotExpr {
 impl Expr for NotExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.right.eval(state, f)?;
 
         match a {
-            Int(x) => Ok(Int(!x)),
-            Bool(x) => Ok(Bool(!x)),
+            Val(I(x)) => Ok(Val(I(!x))),
+            Val(B(x)) => Ok(Val(B(!x))),
             _ => expr_err("Not type error."),
         }
     }
@@ -916,12 +937,13 @@ impl AstNode for AndExpr {
 impl Expr for AndExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x & y)),
-            (Bool(x),Bool(y)) => Ok(Bool(x && y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x & y))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x && y))),
             (_,_) => expr_err("AND type error."),
         }
     }
@@ -946,12 +968,13 @@ impl AstNode for OrExpr {
 impl Expr for OrExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x | y)),
-            (Bool(x),Bool(y)) => Ok(Bool(x || y)),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x | y))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(x || y))),
             (_,_) => expr_err("OR type error."),
         }
     }
@@ -976,12 +999,13 @@ impl AstNode for XorExpr {
 impl Expr for XorExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
         use Value::*;
+        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (Int(x),Int(y)) => Ok(Int(x ^ y)),
-            (Bool(x),Bool(y)) => Ok(Bool(if x == y {false} else {true})),
+            (Val(I(x)),Val(I(y))) => Ok(Val(I(x ^ y))),
+            (Val(B(x)),Val(B(y))) => Ok(Val(B(if x == y {false} else {true}))),
             (_,_) => expr_err("AND type error."),
         }
     }
@@ -1018,7 +1042,7 @@ impl Expr for FuncCall {
 
         match base {
             Value::Func(package, name) => f.call_fn(&package.borrow(), &name.borrow(), &func_args),
-            Value::Closure(func) => func.borrow().call(&func_args, f),
+            Value::Closure(func, captures) => func.borrow().call(&func_args, f, Some(&captures.borrow())),
             _ => expr_err("Cannot call non-function value."),
         }
     }
@@ -1063,7 +1087,8 @@ impl Expr for CoreFuncCall {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use runtime::{Scope, Value};
+    use runtime::{Scope, Value, VType};
+    use self::VType::*;
 
     // ADD
 
@@ -1074,7 +1099,7 @@ mod tests {
 
         let add = AddExpr::new(Box::new(ValExpr::Int(25)), Box::new(ValExpr::Int(12)));
 
-        assert_eq!(add.eval(&mut state, &f), Ok(Value::Int(37)));
+        assert_eq!(add.eval(&mut state, &f), Ok(Value::Val(I(37))));
     }
 
     #[test]
@@ -1084,7 +1109,7 @@ mod tests {
 
         let add = AddExpr::new(Box::new(ValExpr::Int(25)), Box::new(ValExpr::Float(3.3)));
 
-        assert_eq!(add.eval(&mut state, &f), Ok(Value::Float(28.3)));
+        assert_eq!(add.eval(&mut state, &f), Ok(Value::Val(F(28.3))));
     }
 
     #[test]

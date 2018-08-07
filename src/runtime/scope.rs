@@ -1,13 +1,10 @@
 use super::{Value, Signal, ExprRes, expr_err};
 use std::collections::HashMap;
-
-enum Stored {
-    Const(Value),
-    Var(Value),
-}
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct Scope {
-    vars: Vec<HashMap<String, Stored>>,
+    vars: Vec<HashMap<String, Value>>,
 }
 
 
@@ -30,18 +27,7 @@ impl Scope {
         match self.vars.last_mut() {
             Some(t) => match t.contains_key(name) {
                 true => Signal::Error("Value already declared.".to_string()),
-                false => {t.insert(name.to_string(), Stored::Var(val)); Signal::Done},
-            },
-            // critical error
-            None => Signal::Error("Internal critical scope error.".to_string()),
-        }
-    }
-
-    pub fn new_const(&mut self, name: &str, val: Value) -> Signal {
-        match self.vars.last_mut() {
-            Some(t) => match t.contains_key(name) {
-                true => Signal::Error("Value already declared.".to_string()),
-                false => {t.insert(name.to_string(), Stored::Const(val)); Signal::Done},
+                false => {t.insert(name.to_string(), val); Signal::Done},
             },
             // critical error
             None => Signal::Error("Internal critical scope error.".to_string()),
@@ -49,10 +35,11 @@ impl Scope {
     }
 
     pub fn get_var(&self, name: &str) -> ExprRes {
+        use Value::*;
         for t in self.vars.iter().rev() {
             match t.get(name) {
-                Some(Stored::Const(v)) => return Ok(v.clone()),
-                Some(Stored::Var(v)) => return Ok(v.clone()),
+                Some(Ref(ref v)) => return Ok(Val(v.borrow().clone())),
+                Some(v) => return Ok(v.clone()),
                 None => {},
             }
         }
@@ -60,26 +47,78 @@ impl Scope {
         expr_err("Value not declared.")
     }
 
-    pub fn set_var(&mut self, name: &str, val: Value) -> Signal {
+    // may create reference
+    pub fn get_ref(&mut self, name: &str) -> ExprRes {
+        use Value::*;
         for t in self.vars.iter_mut().rev() {
-            /*match t.contains_key(name) {
-                true => {t.insert(name.to_string(), val); return Signal::Done},
-                false => {},
-            }*/
-            match t.get(name) {
-                Some(Stored::Const(_)) => return Signal::Error("Cannot redefine constant.".to_string()),
-                Some(Stored::Var(_)) => {t.insert(name.to_string(), Stored::Var(val)); return Signal::Done},
+            let mut make_ref = false;
+            let out = match t.get(name) {
+                Some(Val(v)) => {
+                    make_ref = true;
+                    Some(Ref(Rc::new(RefCell::new(v.clone()))))
+                },
+                Some(v) => Some(v.clone()),
+                None => None,
+            };
+            match out {
+                None => {},
+                Some(v) => {
+                    if make_ref {
+                        t.insert(name.to_string(), v.clone());
+                    }
+                    return Ok(v);
+                },
+            }
+        }
+
+        expr_err("Value not declared.")
+    }
+
+    pub fn set_var(&mut self, name: &str, val: Value) -> Signal {
+        use Value::*;
+        for t in self.vars.iter_mut().rev() {
+            match t.get_mut(name) {
+                Some(v) => match val {
+                    Val(ref vtype_val) => match v {
+                        Ref(v_ref) => {*v_ref.borrow_mut() = vtype_val.clone(); return Signal::Done},
+                        _ => {*v = val.clone(); return Signal::Done},
+                    },
+                    _ => {*v = val.clone(); return Signal::Done},
+                },
                 None => {},
             }
         }
 
         Signal::Error("Value not declared.".to_string())
     }
+
+    // For closures
+    pub fn get_scope_refs(&mut self) -> Vec<(String, Value)> {
+        use Value::*;
+        let mut out = Vec::new();
+        for t in self.vars.iter_mut() {
+            for (k,v) in t.iter_mut() {
+                let val = match v {
+                    Val(val) => Some(val.clone()),
+                    _ => None,
+                };
+                match val {
+                    Some(val) => {
+                        *v = Ref(Rc::new(RefCell::new(val)));
+                        out.push((k.clone(), v.clone()));
+                    },
+                    None => out.push((k.clone(), v.clone())),
+                }
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use VType::*;
 
     fn is_error(s: Signal) -> bool {
         match s {
@@ -100,16 +139,16 @@ mod tests {
     fn declare_variable() {
         let mut state = Scope::new();
 
-        assert_eq!(state.new_var("x", Value::Int(30)), Signal::Done);
+        assert_eq!(state.new_var("x", Value::Val(I(30))), Signal::Done);
     }
 
     #[test]
     fn read_variable() {
         let mut state = Scope::new();
 
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
     }
 
     #[test]
@@ -123,33 +162,33 @@ mod tests {
     fn set_undeclared_variable() {
         let mut state = Scope::new();
         
-        assert!(is_error(state.set_var("x", Value::Int(30))));
+        assert!(is_error(state.set_var("x", Value::Val(I(30)))));
     }
 
     #[test]
     fn set_variable() {
         let mut state = Scope::new();
         
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
-        state.set_var("x", Value::Float(2.5));
+        state.set_var("x", Value::Val(F(2.5)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(F(2.5))));
     }
 
     #[test]
     fn set_multi_variables() {
         let mut state = Scope::new();
         
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        state.new_var("y", Some(Value::Float(3.3)));
+        state.new_var("y", Some(Value::Val(F(3.3))));
         
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
-        assert_eq!(state.get_var("y"), Ok(Value::Float(3.3)));
+        assert_eq!(state.get_var("y"), Ok(Value::Val(F(3.3))));
     }
 
     // SCOPE TESTS
@@ -159,9 +198,9 @@ mod tests {
 
         state.extend();
         
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         state.reduce();
 
@@ -172,33 +211,33 @@ mod tests {
     fn shadow_variables() {
         let mut state = Scope::new();
 
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         state.extend();
         
-        state.new_var("x", Some(Value::Float(2.5)));
+        state.new_var("x", Some(Value::Val(F(2.5))));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(F(2.5))));
     }
 
     #[test]
     fn shadow_variables_and_retract() {
         let mut state = Scope::new();
 
-        state.new_var("x", Value::Int(30));
+        state.new_var("x", Value::Val(I(30)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         state.extend();
         
-        state.new_var("x", Value::Float(2.5));
+        state.new_var("x", Value::Val(F(2.5)));
 
-        assert_eq!(state.get_var("x"), Ok(Value::Float(2.5)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(F(2.5))));
 
         state.reduce();
 
-        assert_eq!(state.get_var("x"), Ok(Value::Int(30)));
+        assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
     }
 }

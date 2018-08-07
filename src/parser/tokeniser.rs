@@ -27,6 +27,7 @@ const FALSE: &'static str = "false";
 const NULL: &'static str = "null";
 const IMPORT: &'static str = "import";
 const AS: &'static str = "as";
+const REF: &'static str = "ref";
 
 
 named!(p_token_list<&str, Vec<Token> >,
@@ -174,7 +175,8 @@ named!(p_keywords<&str, Token>,
             value!(Token::False, tag!(FALSE))       |
             value!(Token::Null, tag!(NULL))         |
             value!(Token::Import, tag!(IMPORT))     |
-            value!(Token::As, tag!(AS))
+            value!(Token::As, tag!(AS))             |
+            value!(Token::Ref, tag!(REF))
         )                           >>
         peek!(not!(alphanumeric))   >>
         (t)

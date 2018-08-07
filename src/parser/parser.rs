@@ -386,8 +386,9 @@ fn is_str_lit(input: &[Token]) -> IResult<&[Token], String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use runtime::{Value, FuncMap};
+    use runtime::{Value, VType, FuncMap};
     use parser::tokeniser::tokenise;
+    use VType::*;
 
     #[test]
     fn parse_function() {
@@ -402,7 +403,7 @@ mod tests {
         assert_eq!(fm.call_fn("root",
                               "f",
                               &Vec::new()),
-                   Ok(Value::Int(3)));
+                   Ok(Value::Val(I(3))));
     }
 
     #[test]
@@ -419,7 +420,7 @@ mod tests {
         let fm = FuncMap::new();
         let mut s = Scope::new();
 
-        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Int(6));
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Val(I(6)));
     }
 
     #[test]
@@ -436,7 +437,7 @@ mod tests {
         let fm = FuncMap::new();
         let mut s = Scope::new();
 
-        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Int(36));
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Val(I(36)));
     }
 
     #[test]
@@ -453,7 +454,7 @@ mod tests {
         let fm = FuncMap::new();
         let mut s = Scope::new();
 
-        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Int(15));
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Val(I(15)));
     }
 
     #[test]
@@ -470,7 +471,7 @@ mod tests {
         let fm = FuncMap::new();
         let mut s = Scope::new();
 
-        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Bool(true));
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Val(B(true)));
     }
 
     #[test]
@@ -487,7 +488,7 @@ mod tests {
         let fm = FuncMap::new();
         let mut s = Scope::new();
 
-        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Bool(true));
+        assert_eq!(expr.eval(&mut s, &fm).unwrap(), Value::Val(B(true)));
     }
 
     #[test]
@@ -501,7 +502,7 @@ mod tests {
         fm.attach_package(package_name, package.call_ref());
         let out = fm.call_fn("root", "f", &Vec::new());
 
-        assert_eq!(out, Ok(Value::Int(4)));
+        assert_eq!(out, Ok(Value::Val(I(4))));
     }
 
     #[test]

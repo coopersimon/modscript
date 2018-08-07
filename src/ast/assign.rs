@@ -1,5 +1,5 @@
 use super::{AstNode, Expr, Assign};
-use runtime::{Value, Scope, Signal, FuncMap};
+use runtime::{Value, VType, Scope, Signal, FuncMap};
 
 pub struct IndexAssign {
     index: Box<Expr>,
@@ -31,9 +31,10 @@ impl AstNode for IndexAssign {
 impl Assign for IndexAssign {
     fn assign(&self, var: Value, val: Value, state: &mut Scope, f: &FuncMap) -> Signal {
         use Value::*;
+        use self::VType::*;
 
         let i = match self.index.eval(state, f) {
-            Ok(Int(i)) => i,
+            Ok(Val(I(i))) => i,
             Ok(_) => return Signal::Error("Cannot access with non-index.".to_string()),
             Err(e) => return Signal::Error(e),
         };

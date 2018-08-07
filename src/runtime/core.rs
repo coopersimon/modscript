@@ -1,20 +1,21 @@
 // Core type functions
-use super::{Value, ExprRes, expr_err};
+use super::{Value, VType, ExprRes, expr_err};
 use std::rc::Rc;
 use std::cell::RefCell;
 
 pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
     use Value::*;
+    use self::VType::*;
     match (base_type, func, args.len()) {
-        (Int(i), "to_string",   0) => Ok(Str(Rc::new(RefCell::new(i.to_string())))),
-        (Int(i), "to_float",    0) => Ok(Float(i as f64)),
-        (Int(i), "abs",         0) => Ok(Int(i.abs())),
+        (Val(I(i)), "to_string",   0) => Ok(Str(Rc::new(RefCell::new(i.to_string())))),
+        (Val(I(i)), "to_float",    0) => Ok(Val(F(i as f64))),
+        (Val(I(i)), "abs",         0) => Ok(Val(I(i.abs()))),
 
-        (Float(f), "to_string", 0) => Ok(Str(Rc::new(RefCell::new(f.to_string())))),
-        (Float(f), "abs",       0) => Ok(Float(f.abs())),
-        (Float(f), "floor",     0) => Ok(Float(f.floor())),
-        (Float(f), "ceil",      0) => Ok(Float(f.ceil())),
-        (Float(f), "round",     0) => Ok(Float(f.round())),
+        (Val(F(f)), "to_string", 0) => Ok(Str(Rc::new(RefCell::new(f.to_string())))),
+        (Val(F(f)), "abs",       0) => Ok(Val(F(f.abs()))),
+        (Val(F(f)), "floor",     0) => Ok(Val(I(f.floor() as i64))),
+        (Val(F(f)), "ceil",      0) => Ok(Val(I(f.ceil() as i64))),
+        (Val(F(f)), "round",     0) => Ok(Val(I(f.round() as i64))),
 
         //(Str(ref s), "len",     0) => Ok(
         (Str(ref s), "clone",   0) => Ok(Str(Rc::new(RefCell::new(s.borrow().clone())))),
@@ -23,14 +24,14 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
             _           => expr_err("Concat argument must be str."),
         },
         (Str(ref s), "parse_num", 0) => match s.borrow().parse::<i64>() {
-            Ok(i)   => Ok(Int(i)),
+            Ok(i)   => Ok(Val(I(i))),
             Err(_)  => match s.borrow().parse::<f64>() {
-                Ok(f)   => Ok(Float(f)),
+                Ok(f)   => Ok(Val(F(f))),
                 Err(_)  => expr_err("Cannot parse string."),
             },
         },
 
-        (List(ref l), "len",    0) => Ok(Int(l.borrow().len() as i64)),
+        (List(ref l), "len",    0) => Ok(Val(I(l.borrow().len() as i64))),
         (List(ref l), "clone",  0) => Ok(List(Rc::new(RefCell::new(l.borrow().clone())))),
         (List(ref l), "append", 1) => {l.borrow_mut().push(args[0].clone()); Ok(Null)},
         (List(ref l), "concat", 1) => match args[0] {
@@ -48,7 +49,7 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
 
         (Obj(ref o), "clone",   0) => Ok(Obj(Rc::new(RefCell::new(o.borrow().clone())))),
         (Obj(ref o), "is_field",1) => match args[0] {
-            Str(ref s) => Ok(Bool(o.borrow().contains_key(&*s.borrow()))),
+            Str(ref s) => Ok(Val(B(o.borrow().contains_key(&*s.borrow())))),
             _          => expr_err("'is_field' argument must be string."),
         },
         /*(Obj(ref o), "similar", 1) => match args[0] {
@@ -68,14 +69,14 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         (Obj(ref o), "same",    1) => match args[0] {
             Obj(ref ob) => {
                 if o.borrow().len() != ob.borrow().len() {
-                    return Ok(Bool(false));
+                    return Ok(Val(B(false)));
                 }
                 for (fa,fb) in o.borrow().keys().zip(ob.borrow().keys()) {
                     if fa != fb {
-                        return Ok(Bool(false));
+                        return Ok(Val(B(false)));
                     }
                 }
-                Ok(Bool(true))
+                Ok(Val(B(true)))
             },
             _           => expr_err("'same' argument must be object."),
         },

@@ -1,5 +1,5 @@
 use super::{AstNode, Statement, Expr, Assign};
-use runtime::{Value, Scope, Signal, FuncMap};
+use runtime::{Value, VType, Scope, Signal, FuncMap};
 
 pub struct ScopeStat {
     code: Vec<Box<Statement>>,
@@ -200,9 +200,9 @@ impl Statement for IfStat {
         };
 
         match c {
-            Value::Bool(true) => return self.then_stat.run(state, f),
-            Value::Bool(false) => {},
-            Value::Int(i) => if i != 0 {return self.then_stat.run(state, f)},
+            Value::Val(VType::B(true)) => return self.then_stat.run(state, f),
+            Value::Val(VType::B(false)) => {},
+            Value::Val(VType::I(i)) => if i != 0 {return self.then_stat.run(state, f)},
             _ => return Signal::Error("Type error in if statement.".to_string()),
         }
 
@@ -241,9 +241,9 @@ impl Statement for LoopStat {
         loop {
             match self.cond.eval(state, f) {
                 Ok(v) => match v {
-                    Value::Bool(true) => {},
-                    Value::Bool(false) => break,
-                    Value::Int(i) => if i == 0 {break},
+                    Value::Val(VType::B(true)) => {},
+                    Value::Val(VType::B(false)) => break,
+                    Value::Val(VType::I(i)) => if i == 0 {break},
                     _ => return Signal::Error("Type error in for loop condition.".to_string()),
                 },
                 Err(e) => return Signal::Error(e),
@@ -287,9 +287,9 @@ impl Statement for WhileStat {
         loop {
             match self.cond.eval(state, f) {
                 Ok(v) => match v {
-                    Value::Bool(true) => {},
-                    Value::Bool(false) => break,
-                    Value::Int(i) => if i == 0 {break},
+                    Value::Val(VType::B(true)) => {},
+                    Value::Val(VType::B(false)) => break,
+                    Value::Val(VType::I(i)) => if i == 0 {break},
                     _ => return Signal::Error("Type error in while loop condition.".to_string()),
                 },
                 Err(e) => return Signal::Error(e),

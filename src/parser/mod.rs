@@ -32,6 +32,7 @@ pub enum Token {
     Break,
     Import,
     As,
+    Ref,
 
     // Core functions?
 
