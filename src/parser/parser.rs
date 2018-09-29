@@ -2,7 +2,6 @@ use super::Token;
 use super::resolver::Resolver;
 
 use ast::*;
-//use runtime::Value;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -45,7 +44,6 @@ pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Strin
     Ok(ScriptPackage::new(/*name, */package))
 }
 
-// TODO: Anonymous functions here?
 pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Script, String> {
     RESOLVER.with(|r| r.borrow_mut().set_package("0"));
 
@@ -61,6 +59,23 @@ pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Scri
     RESOLVER.with(|r| r.borrow_mut().reset_package_refs());
 
     Ok(Script::new(output))
+}
+
+pub fn parse_expr_snippet(input: &[Token], packs: &[(String, String)]) -> Result<ScriptExpr, String> {
+    RESOLVER.with(|r| r.borrow_mut().set_package("0"));
+
+    for &(ref n, ref r) in packs.iter() {
+        add_package_ref(n,r);
+    }
+
+    let output = match p_expr(input) {
+        Ok((_,o)) => o,
+        Err(e) => return Err(format!("Error: {:?}", e)),
+    };
+
+    RESOLVER.with(|r| r.borrow_mut().reset_package_refs());
+
+    Ok(ScriptExpr::new(output))
 }
 
 
@@ -301,9 +316,9 @@ named!(p_expr_stat<&[Token], Box<Statement> >,
     )
 );
 
-named!(p_expr<&[Token], Box<Expr> >,
+named!(pub p_expr<&[Token], Box<Expr> >,
     alt!(
-        call!(super::expr::p_expr) |
+        call!(super::expr::p_expr_lalr) |
         do_parse!(
             apply!(compare, Token::Func)    >>
             apply!(compare, Token::LPar)    >>
@@ -318,7 +333,7 @@ named!(p_expr<&[Token], Box<Expr> >,
 );
 
 fn p_expr_no_consume<'a>(input: &'a [Token]) -> IResult<&'a [Token], Box<Expr>> {
-    match super::expr::p_expr(&input[0..]) {
+    match p_expr(&input[0..]) {
         Ok((_,res)) => Ok((&input[0..],res)),
         e => e,
     }

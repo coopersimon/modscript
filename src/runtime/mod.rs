@@ -2,10 +2,12 @@
 mod scope;
 mod function;
 mod core;
+mod callable;
 
 pub use self::scope::*;
 pub use self::function::*;
 pub use self::core::core_func_call;
+pub use self::callable::*;
 
 use std::rc::Rc;
 use std::cell::RefCell;

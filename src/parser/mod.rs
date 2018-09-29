@@ -3,7 +3,7 @@ mod tokeniser;
 mod parser;
 mod expr;
 
-pub use self::parser::{parse_package, parse_snippet};
+pub use self::parser::{parse_package, parse_snippet, parse_expr_snippet};
 pub use self::tokeniser::tokenise;
 
 

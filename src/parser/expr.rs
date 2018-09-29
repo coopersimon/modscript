@@ -1,7 +1,7 @@
 // LALR Expression parser
 
 use super::Token;
-use parser::parser::get_package_ref;
+use parser::parser::{get_package_ref, p_expr};
 
 use ast::*;
 
@@ -39,7 +39,7 @@ macro_rules! op_match {
     };
 }
 
-pub fn p_expr<'a>(input: &'a [Token]) -> ExprRes<'a> {
+pub fn p_expr_lalr<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match p_unary(&input) {
