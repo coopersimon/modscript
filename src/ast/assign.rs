@@ -1,5 +1,6 @@
 use super::{AstNode, Expr, Assign};
 use runtime::{Value, VType, Scope, Signal, FuncMap};
+use error::{Error, Type, RunCode};
 
 pub struct IndexAssign {
     index: Box<Expr>,
@@ -35,7 +36,7 @@ impl Assign for IndexAssign {
 
         let i = match self.index.eval(state, f) {
             Ok(Val(I(i))) => i,
-            Ok(_) => return Signal::Error("Cannot access with non-index.".to_string()),
+            Ok(_) => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
             Err(e) => return Signal::Error(e),
         };
 
@@ -48,7 +49,7 @@ impl Assign for IndexAssign {
                 } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
                     ((list.len() as i64) + i) as usize
                 } else {
-                    return Signal::Error("Index access out of bounds in assign.".to_string())
+                    return Signal::Error(Error::new(Type::RunTime(RunCode::OutOfBounds)));
                 };
 
                 match self.child_op {
@@ -56,7 +57,7 @@ impl Assign for IndexAssign {
                     None => {list[index] = val; Signal::Done},
                 }
             },
-            _ => Signal::Error("Cannot index non-list type.".to_string()),
+            _ => Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
         }
     }
 }
@@ -87,7 +88,7 @@ impl Assign for AccessAssign {
 
                 let field = match object.get_mut(&self.field_name) {
                     Some(f) => f,
-                    None => return Signal::Error("Field in object assignment doesn't exist.".to_string()),
+                    None => return Signal::Error(Error::new(Type::RunTime(RunCode::FieldNotFound))),
                 };
 
                 match self.child_op {
@@ -95,7 +96,7 @@ impl Assign for AccessAssign {
                     None => {*field = val; Signal::Done},
                 }
             },
-            _ => Signal::Error("Cannot index non-list type.".to_string()),
+            _ => Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
         }
     }
 }

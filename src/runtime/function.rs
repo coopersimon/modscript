@@ -1,4 +1,5 @@
-use super::{Value, ExprRes, expr_err};
+use super::{Value, ExprRes};
+use error::{mserr, Type, RunCode};
 use std::collections::BTreeMap;
 
 pub type PackageRoot = Box<Fn(&str, &[Value], &FuncMap) -> ExprRes>;
@@ -21,7 +22,7 @@ impl FuncMap {
     pub fn call_fn(&self, package: &str, name: &str, args: &[Value]) -> ExprRes {
         match self.packages.get(package) {
             Some(p) => p(name, args, self),
-            None => expr_err("Couldn't find package."),
+            None => mserr(Type::RunTime(RunCode::PackageNotFound)),
         }
     }
 }

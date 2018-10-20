@@ -1,5 +1,6 @@
 use super::{AstNode, Statement, Expr, Assign};
 use runtime::{Value, VType, Scope, Signal, FuncMap};
+use error::{Error, Type, RunCode};
 
 pub struct ScopeStat {
     code: Vec<Box<Statement>>,
@@ -203,7 +204,7 @@ impl Statement for IfStat {
             Value::Val(VType::B(true)) => return self.then_stat.run(state, f),
             Value::Val(VType::B(false)) => {},
             Value::Val(VType::I(i)) => if i != 0 {return self.then_stat.run(state, f)},
-            _ => return Signal::Error("Type error in if statement.".to_string()),
+            _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
         }
 
         match self.else_stat {
@@ -244,7 +245,7 @@ impl Statement for LoopStat {
                     Value::Val(VType::B(true)) => {},
                     Value::Val(VType::B(false)) => break,
                     Value::Val(VType::I(i)) => if i == 0 {break},
-                    _ => return Signal::Error("Type error in for loop condition.".to_string()),
+                    _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
                 },
                 Err(e) => return Signal::Error(e),
             }
@@ -290,7 +291,7 @@ impl Statement for WhileStat {
                     Value::Val(VType::B(true)) => {},
                     Value::Val(VType::B(false)) => break,
                     Value::Val(VType::I(i)) => if i == 0 {break},
-                    _ => return Signal::Error("Type error in while loop condition.".to_string()),
+                    _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
                 },
                 Err(e) => return Signal::Error(e),
             }
@@ -366,7 +367,7 @@ impl Statement for ForStat {
 
                     Signal::Done
                 },*/
-                _ => return Signal::Error("Type error in for loop list.".to_string()),
+                _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
             },
             Err(e) => return Signal::Error(e),
         }
@@ -399,7 +400,7 @@ impl Statement for ReturnStat {
             None => Signal::Return(Value::Null),
         }
     }
-}   
+}
 
 impl ContinueStat {
     pub fn new() -> Self {

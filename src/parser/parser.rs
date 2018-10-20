@@ -2,9 +2,10 @@ use super::Token;
 use super::resolver::Resolver;
 
 use ast::*;
+use error::{Error, Type, CompileCode};
+
 use std::rc::Rc;
 use std::cell::RefCell;
-
 use std::collections::BTreeMap;
 
 use nom::{IResult, Needed, Err, ErrorKind, Context};
@@ -25,12 +26,13 @@ pub fn add_package_ref(package_ref: &str, package_name: &str) {
 }
 
 
-pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, String> {
+pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Error> {
     RESOLVER.with(|r| r.borrow_mut().set_package(name));
 
     let mut output = match p_func_list(input) {
         Ok((_,o)) => o,
-        Err(e) => return Err(format!("Error: {:?}", e)),
+        //Err(e) => return Err(format!("Error: {:?}", e)),
+        Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
     let mut package = BTreeMap::new();
@@ -44,7 +46,7 @@ pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Strin
     Ok(ScriptPackage::new(/*name, */package))
 }
 
-pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Script, String> {
+pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Script, Error> {
     RESOLVER.with(|r| r.borrow_mut().set_package("0"));
 
     for &(ref n, ref r) in packs.iter() {
@@ -53,7 +55,8 @@ pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Scri
 
     let output = match p_stat(input) {
         Ok((_,o)) => o,
-        Err(e) => return Err(format!("Error: {:?}", e)),
+        //Err(e) => return Err(format!("Error: {:?}", e)),
+        Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
     RESOLVER.with(|r| r.borrow_mut().reset_package_refs());
@@ -61,7 +64,7 @@ pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Scri
     Ok(Script::new(output))
 }
 
-pub fn parse_expr_snippet(input: &[Token], packs: &[(String, String)]) -> Result<ScriptExpr, String> {
+pub fn parse_expr_snippet(input: &[Token], packs: &[(String, String)]) -> Result<ScriptExpr, Error> {
     RESOLVER.with(|r| r.borrow_mut().set_package("0"));
 
     for &(ref n, ref r) in packs.iter() {
@@ -70,7 +73,8 @@ pub fn parse_expr_snippet(input: &[Token], packs: &[(String, String)]) -> Result
 
     let output = match p_expr(input) {
         Ok((_,o)) => o,
-        Err(e) => return Err(format!("Error: {:?}", e)),
+        //Err(e) => return Err(format!("Error: {:?}", e)),
+        Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
     RESOLVER.with(|r| r.borrow_mut().reset_package_refs());

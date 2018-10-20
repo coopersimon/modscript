@@ -1,5 +1,6 @@
 use super::{Expr, AstNode, FuncRoot};
-use runtime::{Value, VType, Scope, ExprRes, expr_err, FuncMap, core_func_call};
+use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call};
+use error::{mserr, Type, RunCode};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -224,7 +225,7 @@ impl Expr for IndexExpr {
                 } else if (i < 0) && ((i.abs() as usize) <= list.len()) {
                     ((list.len() as i64) + i) as usize
                 } else {
-                    return expr_err("Index access out of bounds.")
+                    return mserr(Type::RunTime(RunCode::OutOfBounds));
                 };
 
                 Ok(list[index].clone())
@@ -239,9 +240,9 @@ impl Expr for IndexExpr {
                     expr_err("Index access out of bounds.")
                 }*/
             },*/
-            (List(_),_) => expr_err("Index access type error: can't index without int."),
-            (a,Val(I(_))) => expr_err(&format!("Index access type error: can't index non-list object {}.", a)),
-            (_,_) => expr_err("Index access type error."),
+            (List(_),_) => mserr(Type::RunTime(RunCode::TypeError)),
+            (_,Val(I(_))) => mserr(Type::RunTime(RunCode::TypeError)),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -272,10 +273,10 @@ impl Expr for AccessExpr {
                 let obj = o.borrow();
                 match obj.get(&self.access_id) {
                     Some(v) => Ok(v.clone()),
-                    None => expr_err("Access object error: field does not exist."),
+                    None => mserr(Type::RunTime(RunCode::FieldNotFound)),
                 }
             },
-            _ => expr_err("Access object type error."),
+            _ => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -323,7 +324,7 @@ impl Expr for AddExpr {
                 let list = Rc::new(RefCell::new([&x[..], &y[..]].concat()));
                 Ok(List(list))
             },
-            (_,_) => expr_err("Addition type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -356,7 +357,7 @@ impl Expr for SubExpr {
             (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 - y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(F(x - y as f64))),
             (Val(F(x)),Val(F(y))) => Ok(Val(F(x - y))),
-            (_,_) => expr_err("Subtraction type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -392,7 +393,7 @@ impl Expr for MulExpr {
             (Str(x),Val(I(y))) => Ok(refstr!(x.borrow().repeat(y as usize))),
             (List(x),Val(I(y))) => {
                 if y < 0 {
-                    expr_err("Can't duplicate list by negative value.")
+                    mserr(Type::RunTime(RunCode::InvalidNegative)) // Negative value?
                 } else {
                     let x = x.borrow();
                     let list = Rc::new(RefCell::new(Vec::new()));
@@ -402,7 +403,7 @@ impl Expr for MulExpr {
                     Ok(List(list))
                 }
             },
-            (_,_) => expr_err("Multiplication type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -431,12 +432,12 @@ impl Expr for DivExpr {
         let b = self.right.eval(state, f)?;
 
         match (a,b) {
-            (_,Val(I(0))) => expr_err("Divide by zero error."),
+            (_,Val(I(0))) => mserr(Type::RunTime(RunCode::DivideByZero)),
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x / y))),
             (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 / y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(F(x / y as f64))),
             (Val(F(x)),Val(F(y))) => Ok(Val(F(x / y))),
-            (_,_) => expr_err("Division type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -466,7 +467,7 @@ impl Expr for ModExpr {
 
         match (a,b) {
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x % y))),
-            (_,_) => expr_err("Modulus type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -495,7 +496,7 @@ impl Expr for NegExpr {
         match a {
             Val(I(x)) => Ok(Val(I(-x))),
             Val(F(x)) => Ok(Val(F(-x))),
-            _ => expr_err("Negation type error."),
+            _ => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -570,7 +571,7 @@ impl Expr for EqExpr {
             },
             (Null,Null) => Ok(Val(B(true))),
             (_,_) => Ok(Val(B(false))),
-            //(_,_) => expr_err("Equality check type error.".to_string()),
+            //(_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -645,7 +646,7 @@ impl Expr for NEqExpr {
             },
             (Null,Null) => Ok(Val(B(false))),
             (_,_) => Ok(Val(B(true))),
-            //(_,_) => expr_err("Equality check type error.".to_string()),
+            //(_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -700,7 +701,7 @@ impl Expr for TrueEqExpr {
                 }
                 Ok(Val(B(true)))
             },
-            (_,_) => expr_err("Equality check type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -755,7 +756,7 @@ impl Expr for TrueNEqExpr {
                 }
                 Ok(Val(B(false)))
             },
-            (_,_) => expr_err("Equality check type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -788,7 +789,7 @@ impl Expr for GThanExpr {
             (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) > y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(B(x > (y as f64)))),
             (Val(F(x)),Val(F(y))) => Ok(Val(B(x > y))),
-            (_,_) => expr_err("Greater than type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -821,7 +822,7 @@ impl Expr for GEqExpr {
             (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) >= y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(B(x >= (y as f64)))),
             (Val(F(x)),Val(F(y))) => Ok(Val(B(x >= y))),
-            (_,_) => expr_err("Greater than or equal to type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -854,7 +855,7 @@ impl Expr for LThanExpr {
             (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) < y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(B(x < (y as f64)))),
             (Val(F(x)),Val(F(y))) => Ok(Val(B(x < y))),
-            (_,_) => expr_err("Less than type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -887,7 +888,7 @@ impl Expr for LEqExpr {
             (Val(I(x)),Val(F(y))) => Ok(Val(B((x as f64) <= y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(B(x <= (y as f64)))),
             (Val(F(x)),Val(F(y))) => Ok(Val(B(x <= y))),
-            (_,_) => expr_err("Less than or equal to type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -916,7 +917,7 @@ impl Expr for NotExpr {
         match a {
             Val(I(x)) => Ok(Val(I(!x))),
             Val(B(x)) => Ok(Val(B(!x))),
-            _ => expr_err("Not type error."),
+            _ => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -947,7 +948,7 @@ impl Expr for AndExpr {
         match (a,b) {
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x & y))),
             (Val(B(x)),Val(B(y))) => Ok(Val(B(x && y))),
-            (_,_) => expr_err("AND type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -978,7 +979,7 @@ impl Expr for OrExpr {
         match (a,b) {
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x | y))),
             (Val(B(x)),Val(B(y))) => Ok(Val(B(x || y))),
-            (_,_) => expr_err("OR type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -1009,7 +1010,7 @@ impl Expr for XorExpr {
         match (a,b) {
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x ^ y))),
             (Val(B(x)),Val(B(y))) => Ok(Val(B(if x == y {false} else {true}))),
-            (_,_) => expr_err("AND type error."),
+            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -1046,7 +1047,7 @@ impl Expr for FuncCall {
         match base {
             Value::Func(package, name) => f.call_fn(&package.borrow(), &name.borrow(), &func_args),
             Value::Closure(func, captures) => func.borrow().call(&func_args, f, Some(&captures.borrow())),
-            _ => expr_err("Cannot call non-function value."),
+            _ => mserr(Type::RunTime(RunCode::InvalidCall)),
         }
     }
 }

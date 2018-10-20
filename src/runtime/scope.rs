@@ -1,4 +1,5 @@
-use super::{Value, Signal, ExprRes, expr_err};
+use super::{Value, Signal, ExprRes};
+use error::{mserr, Error, Type, RunCode, CriticalCode};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -26,11 +27,11 @@ impl Scope {
     pub fn new_var(&mut self, name: &str, val: Value) -> Signal {
         match self.vars.last_mut() {
             Some(t) => match t.contains_key(name) {
-                true => Signal::Error("Value already declared.".to_string()),
+                true => Signal::Error(Error::new(Type::RunTime(RunCode::VariableAlreadyDeclared))),
                 false => {t.insert(name.to_string(), val); Signal::Done},
             },
             // critical error
-            None => Signal::Error("Internal critical scope error.".to_string()),
+            None => Signal::Error(Error::new(Type::Critical(CriticalCode::ScopeError))),
         }
     }
 
@@ -44,7 +45,7 @@ impl Scope {
             }
         }
 
-        expr_err("Value not declared.")
+        mserr(Type::RunTime(RunCode::VariableNotDeclared))
     }
 
     // may create reference
@@ -71,7 +72,7 @@ impl Scope {
             }
         }
 
-        expr_err("Value not declared.")
+        mserr(Type::RunTime(RunCode::VariableNotDeclared))
     }
 
     pub fn set_var(&mut self, name: &str, val: Value) -> Signal {
@@ -89,7 +90,7 @@ impl Scope {
             }
         }
 
-        Signal::Error("Value not declared.".to_string())
+        Signal::Error(Error::new(Type::RunTime(RunCode::VariableNotDeclared)))
     }
 
     // For closures
@@ -166,14 +167,14 @@ mod tests {
     #[test]
     fn set_undeclared_variable() {
         let mut state = Scope::new();
-        
+
         assert!(is_error(state.set_var("x", Value::Val(I(30)))));
     }
 
     #[test]
     fn set_variable() {
         let mut state = Scope::new();
-        
+
         state.new_var("x", Value::Val(I(30)));
 
         assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
@@ -186,11 +187,11 @@ mod tests {
     #[test]
     fn set_multi_variables() {
         let mut state = Scope::new();
-        
+
         state.new_var("x", Value::Val(I(30)));
 
         state.new_var("y", Some(Value::Val(F(3.3))));
-        
+
         assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         assert_eq!(state.get_var("y"), Ok(Value::Val(F(3.3))));
@@ -202,7 +203,7 @@ mod tests {
         let mut state = Scope::new();
 
         state.extend();
-        
+
         state.new_var("x", Value::Val(I(30)));
 
         assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
@@ -221,7 +222,7 @@ mod tests {
         assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         state.extend();
-        
+
         state.new_var("x", Some(Value::Val(F(2.5))));
 
         assert_eq!(state.get_var("x"), Ok(Value::Val(F(2.5))));
@@ -236,7 +237,7 @@ mod tests {
         assert_eq!(state.get_var("x"), Ok(Value::Val(I(30))));
 
         state.extend();
-        
+
         state.new_var("x", Value::Val(F(2.5)));
 
         assert_eq!(state.get_var("x"), Ok(Value::Val(F(2.5))));

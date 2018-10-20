@@ -1,5 +1,6 @@
 // Core type functions
-use super::{Value, VType, ExprRes, expr_err};
+use super::{Value, VType, ExprRes};
+use error::{mserr, Type, RunCode};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -21,13 +22,13 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         (Str(ref s), "clone",   0) => Ok(Str(Rc::new(RefCell::new(s.borrow().clone())))),
         (Str(ref s), "concat",  1) => match args[0] {
             Str(ref sb) => {s.borrow_mut().push_str(&*sb.borrow()); Ok(Null)},
-            _           => expr_err("Concat argument must be str."),
+            _           => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
         (Str(ref s), "parse_num", 0) => match s.borrow().parse::<i64>() {
             Ok(i)   => Ok(Val(I(i))),
             Err(_)  => match s.borrow().parse::<f64>() {
                 Ok(f)   => Ok(Val(F(f))),
-                Err(_)  => expr_err("Cannot parse string."),
+                Err(_)  => mserr(Type::RunTime(RunCode::CoreParseError)),
             },
         },
 
@@ -36,21 +37,21 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         (List(ref l), "append", 1) => {l.borrow_mut().push(args[0].clone()); Ok(Null)},
         (List(ref l), "concat", 1) => match args[0] {
             List(ref lb) => {l.borrow_mut().extend_from_slice(lb.borrow().as_slice()); Ok(Null)},
-            _            => expr_err("'concat' argument must be list."),
+            _            => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
         (List(ref l), "front",  0) => match l.borrow().first() {
             Some(v) => Ok(v.clone()),
-            None    => expr_err("To access front of list, must have length > 0."),
+            None    => mserr(Type::RunTime(RunCode::CoreAccessError)),
         },
         (List(ref l), "back",   0) => match l.borrow().last() {
             Some(v) => Ok(v.clone()),
-            None    => expr_err("To access back of list, must have length > 0."),
+            None    => mserr(Type::RunTime(RunCode::CoreAccessError)),
         },
 
         (Obj(ref o), "clone",   0) => Ok(Obj(Rc::new(RefCell::new(o.borrow().clone())))),
         (Obj(ref o), "is_field",1) => match args[0] {
             Str(ref s) => Ok(Val(B(o.borrow().contains_key(&*s.borrow())))),
-            _          => expr_err("'is_field' argument must be string."),
+            _          => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
         /*(Obj(ref o), "similar", 1) => match args[0] {
             Obj(ref ob) => {
@@ -78,9 +79,9 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
                 }
                 Ok(Val(B(true)))
             },
-            _           => expr_err("'same' argument must be object."),
+            _           => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
 
-        (_,_,_) => expr_err("Invalid core call."),
+        (_,_,_) => mserr(Type::RunTime(RunCode::FunctionNotFound)),
     }
 }

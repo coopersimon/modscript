@@ -1,5 +1,6 @@
 // wrapper around Value making it callable
-use super::{Value, ExprRes, expr_err, FuncMap};
+use super::{Value, ExprRes, FuncMap};
+use error::{mserr, Type, RunCode};
 
 pub struct Callable {
     base: Value,
@@ -20,7 +21,7 @@ impl Callable {
             Value::Func(ref package, ref name) => f.call_fn(&package.borrow(), &name.borrow(), args),
             Value::Closure(ref func, _) => func.borrow().call(args, f, None),
             Value::Null => Ok(Value::Null),
-            _ => expr_err("Cannot call non-function value."),
+            _ => mserr(Type::RunTime(RunCode::InvalidCall)),
         }
     }
 

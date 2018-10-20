@@ -1,11 +1,13 @@
 use super::Token;
+use error::{Error, Type, CompileCode};
 
 use nom::{multispace, alphanumeric, alpha, digit};
 
-pub fn tokenise(input: &str) -> Result<Vec<Token>, String> {
+pub fn tokenise(input: &str) -> Result<Vec<Token>, Error> {
     match p_token_list(input) {
         Ok((_,o)) => Ok(o),
-        Err(e) => Err(format!("Error: {:?}", e)),
+        //Err(e) => Err(format!("Error: {:?}", e)),
+        Err(_) => Err(Error::new(Type::CompileTime(CompileCode::Error))),
     }
 }
 

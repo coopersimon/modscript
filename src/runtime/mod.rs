@@ -13,6 +13,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
+use error::Error;
 use ast::FuncRoot;
 
 use std::fmt;
@@ -102,9 +103,8 @@ impl fmt::Display for VType {
 }
 
 // Runtime Signals
-#[derive(Clone, PartialEq, Debug)]
 pub enum Signal {
-    Error(String),
+    Error(Error),
     Return(Value),
     Continue,
     Break,
@@ -112,8 +112,4 @@ pub enum Signal {
     Done,
 }
 
-pub type ExprRes = Result<Value, String>;
-
-pub fn expr_err(err: &str) -> ExprRes {
-    Err(err.to_string())
-}
+pub type ExprRes = Result<Value, Error>;

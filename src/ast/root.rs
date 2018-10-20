@@ -1,5 +1,6 @@
 use super::{AstNode, Expr, Statement};
-use runtime::{Value, Scope, Signal, ExprRes, FuncMap, PackageRoot, expr_err};
+use runtime::{Value, Scope, Signal, ExprRes, FuncMap, PackageRoot};
+use error::{mserr, Error, Type, RunCode};
 
 use std::collections::BTreeMap;
 use std::{cmp, fmt};
@@ -64,7 +65,8 @@ impl ScriptPackage {
         Box::new(move |n, a, f| {
             match self.funcs.get(n) {
                 Some(func) => func.call(a, f, None),
-                None => Err(format!("Couldn't find function {}.", n)),
+                //None => Err(format!("Couldn't find function {}.", n)),
+                None => Err(Error::new(Type::RunTime(RunCode::FunctionNotFound))),
             }
         })
     }
@@ -89,7 +91,7 @@ impl FuncRoot {
         let mut state = Scope::new();
 
         if args.len() != self.arg_names.len() {
-            return expr_err("Incorrect number of arguments provided.");
+            return mserr(Type::RunTime(RunCode::WrongNumberOfArguments));
         }
 
         if let Some(s) = scope {
@@ -109,8 +111,8 @@ impl FuncRoot {
                 Signal::Done => {},
                 Signal::Error(e) => return Err(e),
                 Signal::Return(v) => return Ok(v),
-                Signal::Continue => return Err("Cannot continue out of a function.".to_string()),
-                Signal::Break => return Err("Cannot break out of a function.".to_string()),
+                Signal::Continue => return mserr(Type::RunTime(RunCode::CannotContinue)),
+                Signal::Break => return mserr(Type::RunTime(RunCode::CannotBreak)),
             }
         }
 
