@@ -11,24 +11,26 @@ Call core functions using `->`. Example:
 ```
 
 ## TODO
-* Add pair type(?)
-* Local import statements
+* Add pair type (?)
 * Improve import statements (paths, global imports)
 * Export statements (?)
-* Add `type` function
+* Add `type` core function
 * Add exceptions
-* Better error messages in parser
-* Better error messages in runtime
+* Add more context to error struct
 * Iteration for strings and objects
 * Fix/remove C-style for loop
 
 ### Tidiness
 * Clean expr parser, improve core functions
+* Add more compile error messages in parser
 
 ### Lower priority
 * Default argument values in functions
 * Potentially add options for more strict typing
+* Add enums, potentially structs
+* More compile time context checking (functions)
 * Add casting (outside of core functions?)
+* Const data, package-global data
 
 ## Core functions:
 ### Int:

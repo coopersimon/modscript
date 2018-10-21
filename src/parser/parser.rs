@@ -25,6 +25,14 @@ pub fn add_package_ref(package_ref: &str, package_name: &str) {
     RESOLVER.with(|r| r.borrow_mut().add_package_ref(package_ref, package_name));
 }
 
+pub fn add_local_ref(local_ref: &str, package_name: &str) {
+    RESOLVER.with(|r| r.borrow_mut().add_local_ref(local_ref, package_name));
+}
+
+pub fn clear_local_refs() {
+    RESOLVER.with(|r| r.borrow_mut().clear_local_refs());
+}
+
 
 pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Error> {
     RESOLVER.with(|r| r.borrow_mut().set_package(name));
@@ -146,8 +154,40 @@ named!(p_id_list<&[Token], Vec<String> >,
 
 named!(p_func_body<&[Token], Vec<Box<Statement> > >,
     do_parse!(
+        p_func_imports  >>
         s: p_stat_list  >>
+        end_function    >>  // TODO: remove this function
         (s)
+    )
+);
+
+named!(p_func_imports<&[Token], Vec<()> >,
+    many0!(
+        do_parse!(
+            apply!(compare, Token::Import)  >>
+            alt!(
+                do_parse!(
+                    pack: is_str_lit                    >>
+                    apply!(compare, Token::As)          >>
+                    id: is_id                           >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_local_ref(&id, &pack))
+                )   |
+                do_parse!(
+                    pack: is_id                         >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_local_ref(&pack, &pack))
+                )   |
+                do_parse!(
+                    pack: is_id                         >>
+                    apply!(compare, Token::As)          >>
+                    id: is_id                           >>
+                    apply!(compare, Token::SemiColon)   >>
+                    (add_local_ref(&id, &pack))
+                )
+            )                               >>
+            (())
+        )
     )
 );
 
@@ -399,6 +439,11 @@ fn is_str_lit(input: &[Token]) -> IResult<&[Token], String> {
             _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(106)))),
         }
     }
+}
+
+fn end_function(input: &[Token]) -> IResult<&[Token], ()> {
+    clear_local_refs();
+    Ok((input, ()))
 }
 
 

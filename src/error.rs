@@ -22,11 +22,11 @@ impl Error {
     pub fn to_string(&self) -> String {
         use Type::*;
         match self.err_code {
-            Exception(ref v) => format!("Exception occurred: {}", v),
+            Exception(ref v)    => format!("Exception occurred: {}", v),
             CompileTime(ref ec) => format!("Compile error: {:?}", ec),
-            RunTime(ref ec) => format!("Runtime error: {:?}", ec),
-            Critical(ref ec) => format!("Internal error: {:?}", ec),
-            Package(ref pe) => format!("Error: {}", pe.to_string())
+            RunTime(ref ec)     => format!("Runtime error: {:?}", ec),
+            Critical(ref ec)    => format!("Internal error: {:?}", ec),
+            Package(ref pe)     => format!("Error: {}", pe.to_string())
         }
     }
 }

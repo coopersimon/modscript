@@ -433,6 +433,7 @@ impl Expr for DivExpr {
 
         match (a,b) {
             (_,Val(I(0))) => mserr(Type::RunTime(RunCode::DivideByZero)),
+            //(_,Val(F(0.0))) => mserr(Type::RunTime(RunCode::DivideByZero)), TODO: sort this
             (Val(I(x)),Val(I(y))) => Ok(Val(I(x / y))),
             (Val(I(x)),Val(F(y))) => Ok(Val(F(x as f64 / y))),
             (Val(F(x)),Val(I(y))) => Ok(Val(F(x / y as f64))),

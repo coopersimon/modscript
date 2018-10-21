@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct Resolver {
     current_package: Option<String>,
     package_refs: HashMap<String, String>,
+    local_refs: HashMap<String, String>,
 }
 
 impl Resolver {
@@ -12,6 +13,7 @@ impl Resolver {
         Resolver {
             current_package: None,
             package_refs: HashMap::new(),
+            local_refs: HashMap::new(),
         }
     }
 
@@ -25,15 +27,17 @@ impl Resolver {
 
     pub fn get_package_ref(&self, package_ref: Option<&str>) -> Result<String,Error> {
         match package_ref {
-            Some(s) => match self.package_refs.get(s) {
+            Some(s) => match self.local_refs.get(s) {
                 Some(s) => Ok(s.clone()),
-                None => Err(Error::new(Type::CompileTime(CompileCode::PackageNotFound))),
-                //None => Err(format!("Couldn't find package \'{}\'.", s)),
+                None => match self.package_refs.get(s) {
+                    Some(s) => Ok(s.clone()),
+                    None => Err(Error::new(Type::CompileTime(CompileCode::PackageNotFound))),
+                    //None => Err(format!("Couldn't find package \'{}\'.", s)),
+                },
             },
             None => match self.current_package {
                 Some(ref s) => Ok(s.clone()),
                 None => Err(Error::new(Type::Critical(CriticalCode::NoDefaultPackage))),
-                //None => Err("No default package.".to_string()),
             },
         }
     }
@@ -41,5 +45,13 @@ impl Resolver {
     pub fn reset_package_refs(&mut self) {
         self.current_package = None;
         self.package_refs.clear();
+    }
+
+    pub fn add_local_ref(&mut self, local_ref: &str, package_name: &str) {
+        self.local_refs.insert(local_ref.to_string(), package_name.to_string());
+    }
+
+    pub fn clear_local_refs(&mut self) {
+        self.local_refs.clear();
     }
 }
