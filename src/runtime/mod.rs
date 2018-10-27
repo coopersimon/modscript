@@ -30,7 +30,7 @@ pub enum Value {
     Ref(Ref< VType >),
 
     // Pair
-    //Pair(Ref< VType >, Ref< VType >),
+    Pair(Ref< Value >, Ref< Value >),
 
     // Reference types
     Str(Ref< String >),
@@ -56,7 +56,11 @@ impl fmt::Display for Value {
         match self {
             &Value::Val(ref v) => write!(f, "{}", v),
             &Value::Ref(ref v) => write!(f, "{}", v.borrow()),
-            //&Value::Pair(ref n, ref m) => write!(f, "<{}, {}>", n, m),
+            &Value::Pair(ref n, ref m) => {
+                let n = n.borrow();
+                let m = m.borrow();
+                write!(f, "<{}, {}>", n, m)
+            },
             &Value::Str(ref s) => {
                 let s = s.borrow();
                 write!(f, "\"{}\"", s)

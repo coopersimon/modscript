@@ -20,10 +20,12 @@ pub enum ValExpr {
     Int(i64),
     Float(f64),
     Bool(bool),
+    Pair(Box<Expr>, Box<Expr>),
     Text(String),
     List(Vec<Box<Expr>>),
     Obj(Vec<(String,Box<Expr>)>),
     Closure(Rc<RefCell<FuncRoot>>),
+    Null,
 }
 
 pub struct IndexExpr {
@@ -165,6 +167,13 @@ impl Expr for ValExpr {
             &ValExpr::Int(ref v) => Ok(Value::Val(I(v.clone()))),
             &ValExpr::Float(ref v) => Ok(Value::Val(F(v.clone()))),
             &ValExpr::Bool(ref v) => Ok(Value::Val(B(v.clone()))),
+            &ValExpr::Pair(ref l, ref r) => {
+                let l = l.eval(state, f)?;
+                let r = r.eval(state, f)?;
+                let rl = Rc::new(RefCell::new(l));
+                let rr = Rc::new(RefCell::new(r));
+                Ok(Value::Pair(rl,rr))
+            },
             &ValExpr::Text(ref v) => {
                 let r = Rc::new(RefCell::new(v.clone()));
                 Ok(Value::Str(r))
@@ -189,6 +198,7 @@ impl Expr for ValExpr {
                 let r = Rc::new(RefCell::new(state.get_scope_refs()));
                 Ok(Value::Closure(c.clone(), r))
             },
+            &ValExpr::Null => Ok(Value::Null),
         }
     }
 }

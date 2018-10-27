@@ -171,7 +171,7 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     }}
 }
 
-fn p_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
+fn p_obj_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
     if input.len() < 3 {
         Err(Err::Incomplete(Needed::Size(3)))
     } else { match (&input[0],input[1] == split) {
@@ -188,7 +188,7 @@ fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprR
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
         Token::RBrac => Ok((&input[1..], Box::new(ValExpr::Obj(items)))),
-        _ => match p_pair(&input[0..], Token::Colon) {
+        _ => match p_obj_pair(&input[0..], Token::Colon) {
             Ok((ir,res)) => {
                 items.push(res);
                 if ir.len() < 2 {
@@ -204,6 +204,21 @@ fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprR
     }}
 }
 
+/*fn p_pair<'a>(input: &'a [Token]) -> ExprRes<'a> {
+    if input.len() < 4 {
+        Err(Err::Incomplete(Needed::Size(4)))
+    } else { match p_expr(&input[0..]) {
+        Ok((ir,e)) => {
+            if ir.len() < 3 {
+                Err(Err::Incomplete(Needed::Size(4)))
+            } else { match ir[]
+
+            }}
+        },
+        Err(e) => Err(e),
+    }}
+}*/
+
 fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
@@ -213,6 +228,7 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
         Token::StrLit(ref s) => p_post_op(&input[1..], Box::new(ValExpr::Text(s.clone()))),
         Token::True => Ok((&input[1..], Box::new(ValExpr::Bool(true)))),    //TODO: can you post-op true/false?
         Token::False => Ok((&input[1..], Box::new(ValExpr::Bool(false)))),
+        Token::Null => Ok((&input[1..], Box::new(ValExpr::Null))),
         Token::LPar => match p_expr(&input[1..]) {
             Ok((ir,expr)) => {
                 if ir.len() < 2 {
@@ -224,6 +240,7 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
             },
             e => e,
         },
+        //Token::LThan => p_pair(&input[1..]),
         Token::LSq => match input[1] {
             Token::RSq => p_post_op(&input[2..], Box::new(ValExpr::List(Vec::new()))), // TODO: check size
             _ => match p_expr_list(&input, Vec::new(), Token::RSq) {
