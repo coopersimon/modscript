@@ -80,6 +80,9 @@ pub enum RunCode {
     InvalidNegative,
 
     // Core Function Errors
+    CoreFunctionNotFound,
+    CoreBaseTypeError,
+    CoreWrongNumberOfArguments,
     CoreArgumentTypeError,
     CoreParseError,
     CoreAccessError,

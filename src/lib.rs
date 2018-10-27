@@ -7,7 +7,7 @@ mod parser;
 mod error;
 
 pub use ast::{ScriptPackage, Script, ScriptExpr};
-pub use runtime::{Value, Signal, ExprRes, FuncMap, Scope, Callable};
+pub use runtime::{Value, VType, Signal, ExprRes, FuncMap, Scope, Callable, PackageRoot};
 pub use error::*;
 use parser::{tokenise, parse_package, parse_snippet, parse_expr_snippet};
 
@@ -15,6 +15,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 
 pub fn package_from_file(file_name: &str) -> Result<ScriptPackage, Error> {
+    println!("file {}", file_name);
     let file = match File::open(file_name) {
         Ok(f) => f,
         Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::InvalidFile))),
