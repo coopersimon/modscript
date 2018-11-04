@@ -11,26 +11,42 @@ Call core functions using `->`. Example:
 ```
 
 ## TODO
-* Add pair type (?)
+* Add tuple or pair type (?)
 * Improve import statements (paths, global imports)
 * Export statements (?)
 * Add `type` core function
-* Add exceptions
+* Add exceptions or error handling or error/result type
 * Add more context to error struct
 * Iteration for strings and objects
 * Fix/remove C-style for loop
+* Add enums, potentially structs
+* Hash/Tree map object = {[key] = value, } {[]}
 
 ### Tidiness
-* Clean expr parser, improve core functions
+* Clean expr parser
 * Add more compile error messages in parser
 
 ### Lower priority
 * Default argument values in functions
 * Potentially add options for more strict typing
-* Add enums, potentially structs
 * More compile time context checking (functions)
 * Add casting (outside of core functions?)
 * Const data, package-global data
+* Object inheritance, methods (?)
+* Threading (?)
+
+## Types and how to declare them:
+* Integer (64-bit): `var x = 1;`
+* Float (64-bit precision): `var x = 1.;`
+* Bool: `var x = true; var y = false;`
+* String: `var x = "hello"; var y = "";`
+* List: `var x = [1, 2.2, "three"]; var y = [];`
+* _List indexing_: `x[0] == 1; x[-1] == "three";`
+* Object: `var x = {a: 3, b: "str"}; var y = {};`
+* _Object member access_: `x.a == 3;`
+* Hash map: `var x = {[1]: 22, ["key"]: "value", [2.2]: "anytype"}; var y = {[]};`
+* _Hash map access_: `x[1] == 22; x[2.2] == "anytype";`
+* Null: `var x = null; var y;`
 
 ## Core functions:
 ### Int:
@@ -58,6 +74,7 @@ Call core functions using `->`. Example:
 * `concat(x)`: adds list onto the end of the list.
 * `front()`: returns element at the front of the list.
 * `back()`: returns element at the back of the list.
+* `contains(x)`: returns true if item is in the list.
 
 ### Object:
 * `clone()`: copies object into new reference.
@@ -66,9 +83,13 @@ Call core functions using `->`. Example:
 * `same(x)`: checks if all the fields in the two objects are identical.
 Note: `similar` and `same` don't check if the values in the fields are the same. Use `==` for this.
 
-### Pair:
-* `first()`
-* `second()`
+### Hash map:
+* `clone()`: copies map into new reference.
+* `insert(k, v)`: inserts key `k` and value `v`.
+* `is_key(x)`: returns true if key is in the map.
+* `is_value(x)`: returns true if value is in the map.
+* `values()`: returns list of all the values in the map.
+* `keys()`: returns list of all the keys in the map.
 
 ## Example
 ```

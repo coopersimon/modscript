@@ -78,6 +78,7 @@ pub enum RunCode {
     FieldNotFound,
     DivideByZero,
     InvalidNegative,
+    ValueNotHashable,
 
     // Core Function Errors
     CoreFunctionNotFound,

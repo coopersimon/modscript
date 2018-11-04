@@ -171,19 +171,19 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     }}
 }
 
-fn p_obj_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
-    if input.len() < 3 {
-        Err(Err::Incomplete(Needed::Size(3)))
-    } else { match (&input[0],input[1] == split) {
-        (&Token::Id(ref n), true) => match p_expr(&input[2..]) {
-            Ok((ir,expr)) => Ok((ir,(n.clone(),expr))),
-            Err(e) => Err(e),
-        },
-        (_,_) => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
-    }}
-}
-
 fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprRes<'a> {
+    fn p_obj_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
+        if input.len() < 3 {
+            Err(Err::Incomplete(Needed::Size(3)))
+        } else { match (&input[0],input[1] == split) {
+            (&Token::Id(ref n), true) => match p_expr(&input[2..]) {
+                Ok((ir,expr)) => Ok((ir,(n.clone(),expr))),
+                Err(e) => Err(e),
+            },
+            (_,_) => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+        }}
+    }
+
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
@@ -199,6 +199,44 @@ fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprR
                     _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
                 }}
             },
+            Err(e) => Err(e),
+        },
+    }}
+}
+
+fn p_hashmap<'a>(input: &'a[Token], mut items: Vec<(Box<Expr>, Box<Expr>)>) -> ExprRes<'a> {
+    fn p_map_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (Box<Expr>, Box<Expr>)> {
+        if input.len() < 5 {
+            Err(Err::Incomplete(Needed::Size(5)))
+        } else if input[0] == Token::LSq { match p_expr(&input[1..]) {
+            // TODO: check size of ir below
+            Ok((ir,key)) => if ir[0] == Token::RSq && ir[1] == split { match p_expr(&ir[2..]) {
+                Ok((ir,val)) => Ok((ir, (key,val))),
+                Err(e) => Err(e),
+            }} else {
+                Err(Err::Error(Context::Code(input, ErrorKind::Custom(100))))
+            },
+            Err(e) => Err(e),
+        }} else {
+            Err(Err::Error(Context::Code(input, ErrorKind::Custom(100))))
+        }
+    }
+
+    if input.len() < 4 {
+        Err(Err::Incomplete(Needed::Size(4)))
+    } else { match (&input[1],&input[2])  {
+        (&Token::RSq,&Token::RBrac) => Ok((&input[3..], Box::new(ValExpr::Map(items)))),
+        _ => match p_map_pair(&input[0..], Token::Assign) {
+            Ok((ir,res)) => {
+                items.push(res);
+                if ir.len() < 2 {
+                    Err(Err::Incomplete(Needed::Size(2)))
+                } else { match ir[0] {
+                    Token::RBrac => Ok((&ir[1..], Box::new(ValExpr::Map(items)))),
+                    Token::Comma => p_hashmap(&ir[1..], items),
+                    _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+                }}
+            }
             Err(e) => Err(e),
         },
     }}
@@ -248,7 +286,10 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
                 Err(e) => Err(e),
             },
         },
-        Token::LBrac => p_object(&input[1..], Vec::new()),
+        Token::LBrac => match input[1] {
+            Token::LSq => p_hashmap(&input[1..], Vec::new()),
+            _ => p_object(&input[1..], Vec::new()),
+        },
         Token::Id(ref n) => match input[1] {
             Token::DoubleColon => {
                 if input.len() < 4 {

@@ -1,5 +1,5 @@
 // Core type functions
-use super::{Value, VType, ExprRes};
+use super::{Value, VType, ExprRes, hash_value};
 use error::{mserr, Type, RunCode};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -13,14 +13,21 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         "ceil"      =>  ceil(base_type, args),
         "round"     =>  round(base_type, args),
         "len"       =>  len(base_type, args),
+        // left, right OR first, second OR front, back
         "clone"     =>  clone(base_type, args),
         "concat"    =>  concat(base_type, args),
         "parse_num" =>  parse_num(base_type, args),
         "append"    =>  append(base_type, args),
         "front"     =>  front(base_type, args),
         "back"      =>  back(base_type, args),
+        "contains"  =>  contains(base_type, args),
         "is_field"  =>  is_field(base_type, args),
         "same"      =>  same(base_type, args),
+        "insert"    =>  insert(base_type, args),
+        /*"is_key"    =>  is_key(base_type, args),
+        "is_value"  =>  is_value(base_type, args),
+        "keys"      =>  keys(base_type, args),
+        "values"    =>  values(base_type, args),*/
         _           =>  mserr(Type::RunTime(RunCode::CoreFunctionNotFound)),
     }
 }
@@ -186,11 +193,11 @@ fn concat(base_type: Value, args: &[Value]) -> ExprRes {
     }
 
     match base_type {
-        Str(ref s) => match args[1] {
+        Str(ref s) => match args[0] {
             Str(ref sb) => {s.borrow_mut().push_str(&*sb.borrow()); Ok(Null)},
             _           => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
-        List(ref l) => match args[1] {
+        List(ref l) => match args[0] {
             List(ref lb) => {l.borrow_mut().extend_from_slice(lb.borrow().as_slice()); Ok(Null)},
             _            => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
         },
@@ -263,6 +270,27 @@ fn back(base_type: Value, args: &[Value]) -> ExprRes {
     }
 }
 
+fn contains(base_type: Value, args: &[Value]) -> ExprRes {
+    use Value::*;
+    use self::VType::*;
+
+    if args.len() != 1 {
+        return mserr(Type::RunTime(RunCode::CoreWrongNumberOfArguments));
+    }
+
+    match base_type {
+        List(ref l) => {
+            for i in l.borrow().iter() {
+                if args[0] == *i {
+                    return Ok(Val(B(true)));
+                }
+            }
+            Ok(Val(B(false)))
+        },
+        _           => mserr(Type::RunTime(RunCode::CoreBaseTypeError)),
+    }
+}
+
 fn is_field(base_type: Value, args: &[Value]) -> ExprRes {
     use Value::*;
     use self::VType::*;
@@ -302,6 +330,24 @@ fn same(base_type: Value, args: &[Value]) -> ExprRes {
                 Ok(Val(B(true)))
             },
             _           => mserr(Type::RunTime(RunCode::CoreArgumentTypeError)),
+        },
+        _           => mserr(Type::RunTime(RunCode::CoreBaseTypeError)),
+    }
+}
+
+fn insert(base_type: Value, args: &[Value]) -> ExprRes {
+    use Value::*;
+
+    if args.len() != 2 {
+        return mserr(Type::RunTime(RunCode::CoreWrongNumberOfArguments));
+    }
+
+    match base_type {
+        Map(ref m) => {
+            let keyhash = hash_value(&args[0])?;
+            let keyclone = clone(args[0].clone(), &[])?;
+            m.borrow_mut().insert(keyhash,(keyclone,args[1].clone()));
+            Ok(Null)
         },
         _           => mserr(Type::RunTime(RunCode::CoreBaseTypeError)),
     }

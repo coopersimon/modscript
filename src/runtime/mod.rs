@@ -3,15 +3,17 @@ mod scope;
 mod function;
 mod core;
 mod callable;
+mod hash;
 
 pub use self::scope::*;
 pub use self::function::*;
 pub use self::core::core_func_call;
 pub use self::callable::*;
+pub use self::hash::*;
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use error::Error;
 use ast::FuncRoot;
@@ -35,7 +37,10 @@ pub enum Value {
     // Reference types
     Str(Ref< String >),
     List(Ref< Vec<Value> >),
-    Obj(Ref< BTreeMap<String,Value> >),
+    Obj(Ref< HashMap<String,Value> >),
+    Map(Ref< HashMap<HashV,(Value,Value)> >),
+
+    // Callable reference types
     Func(Ref< String >, Ref< String >),
     Closure(Ref< FuncRoot >, Ref< Vec<(String,Value)> >),
 
@@ -53,19 +58,20 @@ pub enum VType {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Value::Val(ref v) => write!(f, "{}", v),
-            &Value::Ref(ref v) => write!(f, "{}", v.borrow()),
-            &Value::Pair(ref n, ref m) => {
+        use self::Value::*;
+        match *self {
+            Val(ref v) => write!(f, "{}", v),
+            Ref(ref v) => write!(f, "{}", v.borrow()),
+            Pair(ref n, ref m) => {
                 let n = n.borrow();
                 let m = m.borrow();
                 write!(f, "<{}, {}>", n, m)
             },
-            &Value::Str(ref s) => {
+            Str(ref s) => {
                 let s = s.borrow();
                 write!(f, "\"{}\"", s)
             },
-            &Value::List(ref l) => {
+            List(ref l) => {
                 let l = l.borrow();
                 write!(f, "[")?;
                 if l.len() > 0 {
@@ -76,7 +82,7 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             },
-            &Value::Obj(ref o) => {
+            Obj(ref o) => {
                 let o = o.borrow();
                 write!(f, "object{{")?;
                 if o.len() > 0 {
@@ -88,24 +94,37 @@ impl fmt::Display for Value {
                 }
                 write!(f, "}}")
             },
-            &Value::Func(ref p, ref n) => {
+            Map(ref m) => {
+                let m = m.borrow();
+                write!(f, "map{{")?;
+                if m.len() > 0 {
+                    for (_,(k,v)) in m.iter().take(m.len()-1) {
+                        write!(f, "[{}]= {}, ", k, v)?;
+                    }
+                    let (_,(k,v)) = m.iter().skip(m.len()-1).next().unwrap();
+                    write!(f, "[{}]= {}", k, v)?;
+                }
+                write!(f, "}}")
+            },
+            Func(ref p, ref n) => {
                 let p = p.borrow();
                 let n = n.borrow();
                 write!(f, "function{{{}::{}}}", p, n)
             },
             // TODO: make this a bit more verbose
-            &Value::Closure(_,_) => write!(f, "closure{{}}"),
-            &Value::Null => write!(f, "null"),
+            Closure(_,_) => write!(f, "closure{{}}"),
+            Null => write!(f, "null"),
         }
     }
 }
 
 impl fmt::Display for VType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &VType::I(n) => write!(f, "{}", n),
-            &VType::F(n) => write!(f, "{}", n),
-            &VType::B(b) => write!(f, "{}", b),
+        use self::VType::*;
+        match *self {
+            I(n) => write!(f, "{}", n),
+            F(n) => write!(f, "{}", n),
+            B(b) => write!(f, "{}", b),
         }
     }
 }

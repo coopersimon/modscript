@@ -1,17 +1,17 @@
 use super::{Value, ExprRes};
 use error::{mserr, Type, RunCode};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 pub type PackageRoot = Box<Fn(&str, &[Value], &FuncMap) -> ExprRes>;
 
 pub struct FuncMap {
-    packages: BTreeMap<String, PackageRoot>,
+    packages: HashMap<String, PackageRoot>,
 }
 
 impl FuncMap {
     pub fn new() -> Self {
         FuncMap {
-            packages: BTreeMap::new(),
+            packages: HashMap::new(),
         }
     }
 

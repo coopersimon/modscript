@@ -1,10 +1,10 @@
 use super::{Expr, AstNode, FuncRoot};
-use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call};
+use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call, hash_value};
 use error::{mserr, Type, RunCode};
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 macro_rules! refstr {
     ($s:expr) => {
@@ -24,6 +24,7 @@ pub enum ValExpr {
     Text(String),
     List(Vec<Box<Expr>>),
     Obj(Vec<(String,Box<Expr>)>),
+    Map(Vec<(Box<Expr>,Box<Expr>)>),
     Closure(Rc<RefCell<FuncRoot>>),
     Null,
 }
@@ -151,11 +152,11 @@ impl Expr for ValExpr {
         use std::rc::Rc;
         use std::cell::RefCell;
         use self::VType::*;
-        //match *self {
-        match self {
+        use self::ValExpr::*;
+        match *self {
             // TODO: function calls to unqualified Id
             //&ValExpr::Id(ref n) => state.get_var(&n),
-            &ValExpr::QualId(ref p, ref n) => match state.get_var(&n) {
+            QualId(ref p, ref n) => match state.get_var(&n) {
                 Ok(v) => Ok(v),
                 Err(_e) => {
                     let rp = Rc::new(RefCell::new(p.clone()));
@@ -163,22 +164,22 @@ impl Expr for ValExpr {
                     Ok(Value::Func(rp, rn))
                 },
             },
-            &ValExpr::Ref(ref n) => state.get_ref(&n),
-            &ValExpr::Int(ref v) => Ok(Value::Val(I(v.clone()))),
-            &ValExpr::Float(ref v) => Ok(Value::Val(F(v.clone()))),
-            &ValExpr::Bool(ref v) => Ok(Value::Val(B(v.clone()))),
-            &ValExpr::Pair(ref l, ref r) => {
+            Ref(ref n) => state.get_ref(&n),
+            Int(ref v) => Ok(Value::Val(I(v.clone()))),
+            Float(ref v) => Ok(Value::Val(F(v.clone()))),
+            Bool(ref v) => Ok(Value::Val(B(v.clone()))),
+            Pair(ref l, ref r) => {
                 let l = l.eval(state, f)?;
                 let r = r.eval(state, f)?;
                 let rl = Rc::new(RefCell::new(l));
                 let rr = Rc::new(RefCell::new(r));
                 Ok(Value::Pair(rl,rr))
             },
-            &ValExpr::Text(ref v) => {
+            Text(ref v) => {
                 let r = Rc::new(RefCell::new(v.clone()));
                 Ok(Value::Str(r))
             },
-            &ValExpr::List(ref l) => {
+            List(ref l) => {
                 let r = Rc::new(RefCell::new(Vec::new()));
                 for expr in l.iter() {
                     let el = expr.eval(state, f)?;
@@ -186,19 +187,29 @@ impl Expr for ValExpr {
                 }
                 Ok(Value::List(r))
             },
-            &ValExpr::Obj(ref o) => {
-                let r = Rc::new(RefCell::new(BTreeMap::new()));
+            Obj(ref o) => {
+                let r = Rc::new(RefCell::new(HashMap::new()));
                 for &(ref n, ref expr) in o.iter() {
                     let el = expr.eval(state, f)?;
                     r.borrow_mut().insert(n.clone(), el);
                 }
                 Ok(Value::Obj(r))
             },
-            &ValExpr::Closure(ref c) => {
+            Map(ref m) => {
+                let r = Rc::new(RefCell::new(HashMap::new()));
+                for &(ref k, ref v) in m.iter() {
+                    let kval = k.eval(state, f)?;
+                    let keyhash = hash_value(&kval)?;
+                    let vval = v.eval(state, f)?;
+                    r.borrow_mut().insert(keyhash, (kval, vval));
+                }
+                Ok(Value::Map(r))
+            },
+            Closure(ref c) => {
                 let r = Rc::new(RefCell::new(state.get_scope_refs()));
                 Ok(Value::Closure(c.clone(), r))
             },
-            &ValExpr::Null => Ok(Value::Null),
+            Null => Ok(Value::Null),
         }
     }
 }
