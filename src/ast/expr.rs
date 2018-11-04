@@ -251,6 +251,7 @@ impl Expr for IndexExpr {
 
                 Ok(list[index].clone())
             },
+            (List(_),_) => mserr(Type::RunTime(RunCode::TypeError)),
             /*(Str(s),Int(i)) => {
                 let text = s.borrow();
                 /*if (i >= 0) && ((i as usize) < text.len()) {
@@ -261,9 +262,16 @@ impl Expr for IndexExpr {
                     expr_err("Index access out of bounds.")
                 }*/
             },*/
-            (List(_),_) => mserr(Type::RunTime(RunCode::TypeError)),
-            (_,Val(I(_))) => mserr(Type::RunTime(RunCode::TypeError)),
-            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
+            (Map(m),iv) => {
+                let map = m.borrow();
+                let index = hash_value(&iv)?;
+                let (_key, val) = match map.get(&index) {
+                    Some(v) => v,
+                    None    => return mserr(Type::RunTime(RunCode::OutOfBounds)),
+                };
+                Ok(val.clone())
+            },
+            _ => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }

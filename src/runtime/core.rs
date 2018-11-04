@@ -175,6 +175,7 @@ fn clone(base_type: Value, args: &[Value]) -> ExprRes {
         Str(ref s)  => Ok(Str(Rc::new(RefCell::new(s.borrow().clone())))),
         List(ref l) => Ok(List(Rc::new(RefCell::new(l.borrow().clone())))),
         Obj(ref o)  => Ok(Obj(Rc::new(RefCell::new(o.borrow().clone())))),
+        Map(ref m)  => Ok(Map(Rc::new(RefCell::new(m.borrow().clone())))),
         Ref(ref r)  => match *r.borrow() {
             I(i)    => Ok(Val(I(i))),
             F(f)    => Ok(Val(F(f))),

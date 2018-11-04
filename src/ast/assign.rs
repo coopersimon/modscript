@@ -1,5 +1,5 @@
 use super::{AstNode, Expr, Assign};
-use runtime::{Value, VType, Scope, Signal, FuncMap};
+use runtime::{Value, VType, Scope, Signal, FuncMap, hash_value};
 use error::{Error, Type, RunCode};
 
 pub struct IndexAssign {
@@ -35,14 +35,18 @@ impl Assign for IndexAssign {
         use self::VType::*;
 
         let i = match self.index.eval(state, f) {
-            Ok(Val(I(i))) => i,
-            Ok(_) => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
-            Err(e) => return Signal::Error(e),
+            Ok(i)   => i,
+            Err(e)  => return Signal::Error(e),
         };
 
         match var {
             List(ref l) => {
                 let mut list = l.borrow_mut();
+
+                let i = match i {
+                    Val(I(i)) => i,
+                    _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
+                };
 
                 let index = if (i >= 0) && ((i as usize) < list.len()) {
                     i as usize
@@ -55,6 +59,23 @@ impl Assign for IndexAssign {
                 match self.child_op {
                     Some(ref op) => op.assign(list[index].clone(), val, state, f),
                     None => {list[index] = val; Signal::Done},
+                }
+            },
+            Map(ref m) => {
+                let mut map = m.borrow_mut();
+
+                let index = match hash_value(&i) {
+                    Ok(i) => i,
+                    Err(e) => return Signal::Error(e),
+                };
+                let map_value = match map.get_mut(&index) {
+                    Some(v) => v,
+                    None    => return Signal::Error(Error::new(Type::RunTime(RunCode::OutOfBounds))),
+                };
+
+                match self.child_op {
+                    Some(ref op) => op.assign(map_value.1.clone(), val, state, f),
+                    None => {map_value.1 = val; Signal::Done},
                 }
             },
             _ => Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
