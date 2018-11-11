@@ -20,7 +20,8 @@ Call core functions using `->`. Example:
 * Iteration for strings and objects
 * Fix/remove C-style for loop
 * Add enums, potentially structs
-* Hash/Tree map object = {[key] = value, } {[]}
+* Switch/match statements
+* Some sort of ternary expression
 
 ### Tidiness
 * Clean expr parser

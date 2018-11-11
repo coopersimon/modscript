@@ -31,20 +31,25 @@ impl Script {
 
 // AST entry point for expression snippet
 pub struct ScriptExpr {
-    expr: Box<Expr>,
+    expr: Option<Box<Expr>>,
 }
 
 impl ScriptExpr {
-    pub fn new(e: Box<Expr>) -> Self {
+    pub fn new(e: Option<Box<Expr>>) -> Self {
         ScriptExpr {
             expr: e,
         }
     }
 
     pub fn run(&self, funcs: &FuncMap) -> ExprRes {
-        let mut state = Scope::new();
+        match self.expr {
+            Some(ref e) => {
+                let mut state = Scope::new();
 
-        self.expr.eval(&mut state, funcs)
+                e.eval(&mut state, funcs)
+            },
+            None    => Ok(Value::Null),
+        }
     }
 }
 
@@ -65,7 +70,6 @@ impl ScriptPackage {
         Box::new(move |n, a, f| {
             match self.funcs.get(n) {
                 Some(func) => func.call(a, f, None),
-                //None => Err(format!("Couldn't find function {}.", n)),
                 None => Err(Error::new(Type::RunTime(RunCode::FunctionNotFound))),
             }
         })

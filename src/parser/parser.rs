@@ -39,7 +39,6 @@ pub fn parse_package(input: &[Token], name: &str) -> Result<ScriptPackage, Error
 
     let mut output = match p_func_list(input) {
         Ok((_,o)) => o,
-        //Err(e) => return Err(format!("Error: {:?}", e)),
         Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
@@ -63,7 +62,6 @@ pub fn parse_snippet(input: &[Token], packs: &[(String, String)]) -> Result<Scri
 
     let output = match p_stat(input) {
         Ok((_,o)) => o,
-        //Err(e) => return Err(format!("Error: {:?}", e)),
         Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
@@ -79,15 +77,14 @@ pub fn parse_expr_snippet(input: &[Token], packs: &[(String, String)]) -> Result
         add_package_ref(n,r);
     }
 
-    let output = match p_expr(input) {
+    let output = match p_expr_snippet(input) {
         Ok((_,o)) => o,
-        //Err(e) => return Err(format!("Error: {:?}", e)),
         Err(_) => return Err(Error::new(Type::CompileTime(CompileCode::Error))),
     };
 
     RESOLVER.with(|r| r.borrow_mut().reset_package_refs());
 
-    Ok(ScriptExpr::new(output))
+    Ok(ScriptExpr::new(Some(output)))
 }
 
 
@@ -357,6 +354,14 @@ named!(p_expr_stat<&[Token], Box<Statement> >,
         expr: complete!(p_expr)             >>
         apply!(compare, Token::SemiColon)   >>
         (Box::new(ExprStat::new(expr)))
+    )
+);
+
+named!(pub p_expr_snippet<&[Token], Box<Expr> >,
+    do_parse!(
+        expr: complete!(p_expr)             >>
+        apply!(compare, Token::SemiColon)   >>
+        (expr)
     )
 );
 

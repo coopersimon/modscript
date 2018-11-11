@@ -26,7 +26,7 @@ impl Error {
             CompileTime(ref ec) => format!("Compile error: {:?}", ec),
             RunTime(ref ec)     => format!("Runtime error: {:?}", ec),
             Critical(ref ec)    => format!("Internal error: {:?}", ec),
-            Package(ref pe)     => format!("Error: {}", pe.to_string())
+            Package(ref pe)     => format!("{}", pe.to_string())
         }
     }
 }
