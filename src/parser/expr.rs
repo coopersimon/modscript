@@ -30,6 +30,8 @@ macro_rules! op_match {
                     Token::AsnXor       |
                     Token::AsnAnd       |
                     Token::Assign       |
+                    Token::DoubleDot    |
+                    Token::Colon        |
                     Token::Comma => Ok((ir, Box::new($ast($first,expr)))),
                     _ => p_op(Box::new($ast($first,expr)), ir),
                 }}
@@ -61,6 +63,8 @@ pub fn p_expr_lalr<'a>(input: &'a [Token]) -> ExprRes<'a> {
                 Token::AsnXor       |
                 Token::AsnAnd       |
                 Token::Assign       |
+                Token::DoubleDot    |
+                Token::Colon        |
                 Token::Comma => Ok((ir,expr)),
                 _ => p_op(expr, ir),
             }}
@@ -242,6 +246,39 @@ fn p_hashmap<'a>(input: &'a[Token], mut items: Vec<(Box<Expr>, Box<Expr>)>) -> E
     }}
 }
 
+fn p_range<'a>(input: &'a[Token]) -> ExprRes<'a> {
+    if input.len() < 4 {
+        Err(Err::Incomplete(Needed::Size(4)))
+    } else { match p_expr(input) {
+        Ok((ir,lo)) => match ir[0] {
+            Token::DoubleDot => {
+                if input.len() < 2 {
+                    Err(Err::Incomplete(Needed::Size(2)))
+                } else { match p_expr(&ir[1..]) {
+                    Ok((ir,mid)) => match ir[0] {
+                        Token::RSq => Ok((&ir[1..], Box::new(RangeExpr::new(lo, None, mid)))),
+                        Token::DoubleDot => {
+                            if input.len() < 2 {
+                                Err(Err::Incomplete(Needed::Size(2)))
+                            } else { match p_expr(&ir[1..]) {
+                                Ok((ir,hi)) => match ir[0] {
+                                    Token::RSq => Ok((&ir[1..], Box::new(RangeExpr::new(lo, Some(mid), hi)))),
+                                    _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+                                },
+                                Err(e) => Err(e),
+                            }}
+                        },
+                        _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+                    },
+                    Err(e) => Err(e),
+                }}
+            },
+            _ => Err(Err::Error(Context::Code(input, ErrorKind::Custom(100)))),
+        },
+        Err(e) => Err(e),
+    }}
+}
+
 /*fn p_pair<'a>(input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 4 {
         Err(Err::Incomplete(Needed::Size(4)))
@@ -283,8 +320,11 @@ fn p_atom<'a>(input: &'a [Token]) -> ExprRes<'a> {
             Token::RSq => p_post_op(&input[2..], Box::new(ValExpr::List(Vec::new()))), // TODO: check size
             _ => match p_expr_list(&input, Vec::new(), Token::RSq) {
                 Ok((ir,exprs)) => p_post_op(ir, Box::new(ValExpr::List(exprs))),
-                Err(e) => Err(e),
-            },
+                Err(_e) => match p_range(&input[1..]) {
+                    Ok((ir,expr)) => p_post_op(ir, expr),
+                    Err(e) => Err(e),
+                },
+            }
         },
         Token::LBrac => match input[1] {
             Token::LSq => p_hashmap(&input[1..], Vec::new()),

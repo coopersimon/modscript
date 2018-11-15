@@ -33,6 +33,7 @@ pub enum Token {
     Import,
     As,
     Ref,
+    Match,
 
     // Core functions?
 
@@ -54,7 +55,7 @@ pub enum Token {
     TrueEq,
     TrueNEq,
     Not,
-    
+
     // Assignment Ops
     AsnPlus,
     AsnMinus,
@@ -77,6 +78,7 @@ pub enum Token {
     SemiColon,
     Arrow,
     Dot,
+    DoubleDot,
     LSq,
     RSq,
 }

@@ -1,6 +1,6 @@
 use super::{Expr, AstNode, FuncRoot};
-use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call, hash_value};
-use error::{mserr, Type, RunCode};
+use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call, hash_value, equal};
+use error::{mserr, Type, RunCode, Error};
 
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -27,6 +27,12 @@ pub enum ValExpr {
     Map(Vec<(Box<Expr>,Box<Expr>)>),
     Closure(Rc<RefCell<FuncRoot>>),
     Null,
+}
+
+pub struct RangeExpr {
+    start: Box<Expr>,
+    step: Option<Box<Expr>>,
+    end: Box<Expr>,
 }
 
 pub struct IndexExpr {
@@ -211,6 +217,59 @@ impl Expr for ValExpr {
             },
             Null => Ok(Value::Null),
         }
+    }
+}
+
+
+impl RangeExpr {
+    pub fn new(s: Box<Expr>, step: Option<Box<Expr>>, e: Box<Expr>) -> Self {
+        RangeExpr {
+            start: s,
+            step: step,
+            end: e,
+        }
+    }
+}
+
+impl AstNode for RangeExpr {
+    fn print(&self) -> String {
+        "Val".to_string()
+    }
+}
+
+impl Expr for RangeExpr {
+    fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
+        use Value::*;
+        use self::VType::*;
+
+        let start = self.start.eval(state, f)?;
+        let end = self.end.eval(state, f)?;
+        let step = self.step.as_ref().map_or(Ok(1), |s| match s.eval(state, f)? {
+            Val(I(i)) => Ok(i),
+            Ref(ref r) => match *r.borrow() {
+                I(i) => Ok(i),
+                _ => Err(Error::new(Type::RunTime(RunCode::TypeError))),
+            },
+            _ => Err(Error::new(Type::RunTime(RunCode::TypeError))),
+        })?;
+
+        let (mut start_num, end_num) = match (start,end) {
+            (Val(I(s)), Val(I(e))) => (s,e),
+            _ => return mserr(Type::RunTime(RunCode::TypeError)),
+        };
+
+        if start_num >= end_num {
+            return mserr(Type::RunTime(RunCode::InvalidRange));
+        }
+
+        let r = Rc::new(RefCell::new(Vec::new()));
+
+        while start_num < end_num {
+            r.borrow_mut().push(Val(I(start_num)));
+            start_num += step;
+        }
+
+        Ok(Value::List(r))
     }
 }
 
@@ -699,39 +758,12 @@ impl AstNode for TrueEqExpr {
 
 impl Expr for TrueEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
-        use Value::*;
-        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
-        match (a,b) {
-            (Val(I(x)),Val(I(y))) => Ok(Val(B(x == y))),
-            (Val(F(x)),Val(F(y))) => Ok(Val(B(x == y))),
-            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() == *y.borrow()))),
-            (Val(B(x)),Val(B(y))) => Ok(Val(B(x == y))),
-            (List(x),List(y)) => {
-                if x.borrow().len() != y.borrow().len() {
-                    return Ok(Val(B(false)));
-                }
-                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
-                    if i != j {
-                        return Ok(Val(B(false)));
-                    }
-                }
-                Ok(Val(B(true)))
-            },
-            (Obj(x),Obj(y)) => {
-                if x.borrow().len() != y.borrow().len() {
-                    return Ok(Val(B(false)));
-                }
-                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
-                    if (fa != fb) || (va != vb) {
-                        return Ok(Val(B(false)));
-                    }
-                }
-                Ok(Val(B(true)))
-            },
-            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
+        match equal(&a, &b) {
+            Some(res) => Ok(Value::Val(VType::B(res))),
+            None      => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }
@@ -754,39 +786,12 @@ impl AstNode for TrueNEqExpr {
 
 impl Expr for TrueNEqExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
-        use Value::*;
-        use self::VType::*;
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
-        match (a,b) {
-            (Val(I(x)),Val(I(y))) => Ok(Val(B(x != y))),
-            (Val(F(x)),Val(F(y))) => Ok(Val(B(x != y))),
-            (Str(x),Str(y)) => Ok(Val(B(*x.borrow() != *y.borrow()))),
-            (Val(B(x)),Val(B(y))) => Ok(Val(B(x != y))),
-            (List(x),List(y)) => {
-                if x.borrow().len() != y.borrow().len() {
-                    return Ok(Val(B(true)));
-                }
-                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
-                    if i != j {
-                        return Ok(Val(B(true)));
-                    }
-                }
-                Ok(Val(B(false)))
-            },
-            (Obj(x),Obj(y)) => {
-                if x.borrow().len() != y.borrow().len() {
-                    return Ok(Val(B(true)));
-                }
-                for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
-                    if (fa != fb) || (va != vb) {
-                        return Ok(Val(B(true)));
-                    }
-                }
-                Ok(Val(B(false)))
-            },
-            (_,_) => mserr(Type::RunTime(RunCode::TypeError)),
+        match equal(&a, &b) {
+            Some(res) => Ok(Value::Val(VType::B(!res))),
+            None      => mserr(Type::RunTime(RunCode::TypeError)),
         }
     }
 }

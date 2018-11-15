@@ -30,6 +30,7 @@ const NULL: &'static str = "null";
 const IMPORT: &'static str = "import";
 const AS: &'static str = "as";
 const REF: &'static str = "ref";
+const MATCH: &'static str = "match";
 
 
 named!(p_token_list<&str, Vec<Token> >,
@@ -90,6 +91,9 @@ named!(p_float_lit<&str, Token>,
     do_parse!(
         i: opt!(digit)  >>
         tag!(".")       >>
+        peek!(
+            not!(tag!("."))
+        )               >>
         f: opt!(digit)  >>
         (make_float(i,f).unwrap())
     )
@@ -124,7 +128,8 @@ named!(p_punctuators<&str, Token>,
         value!(Token::SemiColon, tag!(";"))     |
         value!(Token::DoubleColon, tag!("::"))  |
         value!(Token::Colon, tag!(":"))         |
-        value!(Token::Arrow, tag!("->"))
+        value!(Token::Arrow, tag!("->"))        |
+        value!(Token::DoubleDot, tag!(".."))
     )
 );
 
@@ -178,7 +183,8 @@ named!(p_keywords<&str, Token>,
             value!(Token::Null, tag!(NULL))         |
             value!(Token::Import, tag!(IMPORT))     |
             value!(Token::As, tag!(AS))             |
-            value!(Token::Ref, tag!(REF))
+            value!(Token::Ref, tag!(REF))           |
+            value!(Token::Match, tag!(MATCH))
         )                           >>
         peek!(not!(alphanumeric))   >>
         (t)

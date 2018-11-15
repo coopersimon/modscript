@@ -1,5 +1,5 @@
 use super::{AstNode, Statement, Expr, Assign};
-use runtime::{Value, VType, Scope, Signal, FuncMap};
+use runtime::{Value, VType, Scope, Signal, FuncMap, equal};
 use error::{Error, Type, RunCode};
 
 pub struct ScopeStat {
@@ -27,11 +27,15 @@ pub struct IfStat {
     else_stat: Option<Box<Statement>>,
 }
 
-pub struct LoopStat {
-    init: Box<Statement>,
+pub enum CaseType {
+    Var(String),
+    Value(Box<Expr>),
+}
+
+pub struct MatchStat {
     cond: Box<Expr>,
-    end: Box<Statement>,
-    loop_body: Box<Statement>,
+    cases: Vec<(CaseType, Box<Statement>)>,
+    otherwise: Option<Box<Statement>>
 }
 
 pub struct WhileStat {
@@ -215,55 +219,56 @@ impl Statement for IfStat {
 }
 
 
-impl LoopStat {
-    pub fn new(i: Box<Statement>, c: Box<Expr>, e: Box<Statement>, b: Box<Statement>) -> Self {
-        LoopStat {
-            init: i,
-            cond: c,
-            end: e,
-            loop_body: b,
+impl MatchStat {
+    pub fn new(m: Box<Expr>, c: Vec<(CaseType, Box<Statement>)>, o: Option<Box<Statement>>) -> Self {
+        MatchStat {
+            cond: m,
+            cases: c,
+            otherwise: o,
         }
     }
 }
 
-impl AstNode for LoopStat {
+impl AstNode for MatchStat {
     fn print(&self) -> String {
         "scope".to_string()
     }
 }
 
-impl Statement for LoopStat {
+impl Statement for MatchStat {
     fn run(&self, state: &mut Scope, f: &FuncMap) -> Signal {
-        match self.init.run(state, f) {
-            Signal::Done => {},
-            s => return s,
+        let c = match self.cond.eval(state, f) {
+            Ok(v) => v,
+            Err(e) => return Signal::Error(e),
+        };
+
+        for (case, stat) in self.cases.iter() {
+            match case {
+                CaseType::Var(ref v)    => {
+                    state.extend();
+                    state.new_var(v, c.clone());
+                    let ret = stat.run(state, f);
+                    state.reduce();
+                    return ret;
+                }
+                CaseType::Value(ref v)  => {
+                    let val = match v.eval(state, f) {
+                        Ok(v) => v,
+                        Err(e) => return Signal::Error(e),
+                    };
+
+                    match equal(&c, &val) {
+                        Some(true) => return stat.run(state, f),
+                        _ => (),
+                    }
+                }
+            }
         }
 
-        loop {
-            match self.cond.eval(state, f) {
-                Ok(v) => match v {
-                    Value::Val(VType::B(true)) => {},
-                    Value::Val(VType::B(false)) => break,
-                    Value::Val(VType::I(i)) => if i == 0 {break},
-                    _ => return Signal::Error(Error::new(Type::RunTime(RunCode::TypeError))),
-                },
-                Err(e) => return Signal::Error(e),
-            }
-
-            match self.loop_body.run(state, f) {
-                Signal::Done => {},
-                Signal::Continue => {},
-                Signal::Break => break,
-                s => return s,
-            }
-
-            match self.end.run(state, f) {
-                Signal::Done => {},
-                s => return s,
-            }
+        match self.otherwise {
+            Some(ref s) => s.run(state, f),
+            None => Signal::Done,
         }
-
-        Signal::Done
     }
 }
 

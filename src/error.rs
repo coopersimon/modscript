@@ -79,6 +79,7 @@ pub enum RunCode {
     DivideByZero,
     InvalidNegative,
     ValueNotHashable,
+    InvalidRange,
 
     // Core Function Errors
     CoreFunctionNotFound,

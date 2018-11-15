@@ -199,6 +199,7 @@ named!(p_stat<&[Token], Box<Statement> >,
         p_scope         |
         p_return_stat   |
         p_if_stat       |
+        p_match_stat    |
         p_while_stat    |
         p_for_stat      |
         p_continue_stat |
@@ -254,6 +255,42 @@ named!(p_elif<&[Token], Box<Statement> >,
     )
 );
 
+named!(p_match_stat<&[Token], Box<Statement> >,
+    do_parse!(
+        apply!(compare, Token::Match)   >>
+        cond: p_expr                    >>
+        apply!(compare, Token::LBrac)   >>
+        cases: many1!(p_match_case)     >>
+        otherwise: opt!(do_parse!(
+            apply!(compare, Token::Else)    >>
+            apply!(compare, Token::Colon)   >>
+            stat: p_stat                    >>
+            (stat)
+        ))                              >>
+        apply!(compare, Token::RBrac)   >>
+        (Box::new(MatchStat::new(cond, cases, otherwise)))
+    )
+);
+
+named!(p_match_case<&[Token], (CaseType, Box<Statement>)>,
+    do_parse!(
+        t: alt!(
+            do_parse!(
+                id: is_id                       >>
+                apply!(compare, Token::Colon)   >>
+                (CaseType::Var(id))
+            ) |
+            do_parse!(
+                e: p_expr                       >>
+                apply!(compare, Token::Colon)   >>
+                (CaseType::Value(e))
+            )
+        )               >>
+        stat: p_stat    >>
+        ((t, stat))
+    )
+);
+
 named!(p_while_stat<&[Token], Box<Statement> >,
     do_parse!(
         apply!(compare, Token::While)   >>
@@ -266,25 +303,12 @@ named!(p_while_stat<&[Token], Box<Statement> >,
 named!(p_for_stat<&[Token], Box<Statement> >,
     do_parse!(
         apply!(compare, Token::For)     >>
-        f: alt!(
-            do_parse!(
-                element: is_id              >>
-                apply!(compare, Token::In)  >>
-                list: p_expr                >>
-                body: p_stat                >>
-                (Box::new(ForStat::new(element, list, body)) as Box<Statement>)
-            )   |
-            do_parse!(
-                apply!(compare, Token::LPar)        >>
-                init: p_stat                        >>
-                apply!(compare, Token::SemiColon)   >>
-                cond: p_expr                        >>
-                apply!(compare, Token::SemiColon)   >>
-                end: p_stat                         >>
-                apply!(compare, Token::RPar)        >>
-                body: p_stat                        >>
-                (Box::new(LoopStat::new(init, cond, end, body)) as Box<Statement>)
-            )
+        f: do_parse!(
+            element: is_id              >>
+            apply!(compare, Token::In)  >>
+            list: p_expr                >>
+            body: p_stat                >>
+            (Box::new(ForStat::new(element, list, body)))
         )                               >>
         (f)
     )
