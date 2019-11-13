@@ -20,128 +20,128 @@ pub enum ValExpr {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Pair(Box<Expr>, Box<Expr>),
+    Pair(Box<dyn Expr>, Box<dyn Expr>),
     Text(String),
-    List(Vec<Box<Expr>>),
-    Obj(Vec<(String,Box<Expr>)>),
-    Map(Vec<(Box<Expr>,Box<Expr>)>),
+    List(Vec<Box<dyn Expr>>),
+    Obj(Vec<(String,Box<dyn Expr>)>),
+    Map(Vec<(Box<dyn Expr>,Box<dyn Expr>)>),
     Closure(Rc<RefCell<FuncRoot>>),
     Null,
 }
 
 pub struct RangeExpr {
-    start: Box<Expr>,
-    step: Option<Box<Expr>>,
-    end: Box<Expr>,
+    start: Box<dyn Expr>,
+    step: Option<Box<dyn Expr>>,
+    end: Box<dyn Expr>,
 }
 
 pub struct IndexExpr {
-    base: Box<Expr>,
-    index: Box<Expr>,
+    base: Box<dyn Expr>,
+    index: Box<dyn Expr>,
 }
 
 pub struct AccessExpr {
-    base: Box<Expr>,
+    base: Box<dyn Expr>,
     access_id: String,
 }
 
 pub struct AddExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct SubExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct MulExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct DivExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct ModExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct NegExpr {
-    right: Box<Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct EqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct NEqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct TrueEqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct TrueNEqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct GThanExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct GEqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct LThanExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct LEqExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct NotExpr {
-    right: Box<Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct AndExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct OrExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct XorExpr {
-    left: Box<Expr>,
-    right: Box<Expr>,
+    left: Box<dyn Expr>,
+    right: Box<dyn Expr>,
 }
 
 pub struct FuncCall {
-    base: Box<Expr>,
-    args: Vec<Box<Expr>>,
+    base: Box<dyn Expr>,
+    args: Vec<Box<dyn Expr>>,
 }
 
 pub struct CoreFuncCall {
     name: String,
-    base: Box<Expr>,
-    args: Vec<Box<Expr>>,
+    base: Box<dyn Expr>,
+    args: Vec<Box<dyn Expr>>,
 }
 
 
@@ -155,8 +155,6 @@ impl AstNode for ValExpr {
 
 impl Expr for ValExpr {
     fn eval(&self, state: &mut Scope, f: &FuncMap) -> ExprRes {
-        use std::rc::Rc;
-        use std::cell::RefCell;
         use self::VType::*;
         use self::ValExpr::*;
         match *self {
@@ -222,7 +220,7 @@ impl Expr for ValExpr {
 
 
 impl RangeExpr {
-    pub fn new(s: Box<Expr>, step: Option<Box<Expr>>, e: Box<Expr>) -> Self {
+    pub fn new(s: Box<dyn Expr>, step: Option<Box<dyn Expr>>, e: Box<dyn Expr>) -> Self {
         RangeExpr {
             start: s,
             step: step,
@@ -275,7 +273,7 @@ impl Expr for RangeExpr {
 
 
 impl IndexExpr {
-    pub fn new(b: Box<Expr>, i: Box<Expr>) -> Self {
+    pub fn new(b: Box<dyn Expr>, i: Box<dyn Expr>) -> Self {
         IndexExpr {
             base: b,
             index: i,
@@ -337,7 +335,7 @@ impl Expr for IndexExpr {
 
 
 impl AccessExpr {
-    pub fn new(b: Box<Expr>, a: &str) -> Self {
+    pub fn new(b: Box<dyn Expr>, a: &str) -> Self {
         AccessExpr {
             base: b,
             access_id: a.to_string(),
@@ -371,7 +369,7 @@ impl Expr for AccessExpr {
 
 
 impl AddExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         AddExpr {
             left: l,
             right: r,
@@ -419,7 +417,7 @@ impl Expr for AddExpr {
 
 
 impl SubExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         SubExpr {
             left: l,
             right: r,
@@ -452,7 +450,7 @@ impl Expr for SubExpr {
 
 
 impl MulExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         MulExpr {
             left: l,
             right: r,
@@ -498,7 +496,7 @@ impl Expr for MulExpr {
 
 
 impl DivExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         DivExpr {
             left: l,
             right: r,
@@ -533,7 +531,7 @@ impl Expr for DivExpr {
 
 
 impl ModExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         ModExpr {
             left: l,
             right: r,
@@ -563,7 +561,7 @@ impl Expr for ModExpr {
 
 
 impl NegExpr {
-    pub fn new(r: Box<Expr>) -> Self {
+    pub fn new(r: Box<dyn Expr>) -> Self {
         NegExpr {
             right: r,
         }
@@ -592,7 +590,7 @@ impl Expr for NegExpr {
 
 
 impl EqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         EqExpr {
             left: l,
             right: r,
@@ -667,7 +665,7 @@ impl Expr for EqExpr {
 
 
 impl NEqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         NEqExpr {
             left: l,
             right: r,
@@ -742,7 +740,7 @@ impl Expr for NEqExpr {
 
 
 impl TrueEqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         TrueEqExpr {
             left: l,
             right: r,
@@ -770,7 +768,7 @@ impl Expr for TrueEqExpr {
 
 
 impl TrueNEqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         TrueNEqExpr {
             left: l,
             right: r,
@@ -798,7 +796,7 @@ impl Expr for TrueNEqExpr {
 
 
 impl GThanExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         GThanExpr {
             left: l,
             right: r,
@@ -831,7 +829,7 @@ impl Expr for GThanExpr {
 
 
 impl GEqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         GEqExpr {
             left: l,
             right: r,
@@ -864,7 +862,7 @@ impl Expr for GEqExpr {
 
 
 impl LThanExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         LThanExpr {
             left: l,
             right: r,
@@ -897,7 +895,7 @@ impl Expr for LThanExpr {
 
 
 impl LEqExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         LEqExpr {
             left: l,
             right: r,
@@ -930,7 +928,7 @@ impl Expr for LEqExpr {
 
 
 impl NotExpr {
-    pub fn new(e: Box<Expr>) -> Self {
+    pub fn new(e: Box<dyn Expr>) -> Self {
         NotExpr {
             right: e,
         }
@@ -959,7 +957,7 @@ impl Expr for NotExpr {
 
 
 impl AndExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         AndExpr {
             left: l,
             right: r,
@@ -990,7 +988,7 @@ impl Expr for AndExpr {
 
 
 impl OrExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         OrExpr {
             left: l,
             right: r,
@@ -1021,7 +1019,7 @@ impl Expr for OrExpr {
 
 
 impl XorExpr {
-    pub fn new(l: Box<Expr>, r: Box<Expr>) -> Self {
+    pub fn new(l: Box<dyn Expr>, r: Box<dyn Expr>) -> Self {
         XorExpr {
             left: l,
             right: r,
@@ -1052,7 +1050,7 @@ impl Expr for XorExpr {
 
 
 impl FuncCall {
-    pub fn new(b: Box<Expr>, a: Vec<Box<Expr>>) -> Self {
+    pub fn new(b: Box<dyn Expr>, a: Vec<Box<dyn Expr>>) -> Self {
         FuncCall {
             base: b,
             args: a,
@@ -1089,7 +1087,7 @@ impl Expr for FuncCall {
 
 
 impl CoreFuncCall {
-    pub fn new(n: &str, b: Box<Expr>, a: Vec<Box<Expr>>) -> Self {
+    pub fn new(n: &str, b: Box<dyn Expr>, a: Vec<Box<dyn Expr>>) -> Self {
         CoreFuncCall {
             name: n.to_string(),
             base: b,
@@ -1123,7 +1121,7 @@ impl Expr for CoreFuncCall {
 
 
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use super::*;
     use runtime::{Scope, Value, VType};
@@ -1181,3 +1179,4 @@ mod tests {
         assert_eq!(res, "x = 3.3".to_string());
     }
 }
+*/

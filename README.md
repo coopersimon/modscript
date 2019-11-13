@@ -18,10 +18,12 @@ Call core functions using `->`. Example:
 * Add exceptions or error handling or error/result type
 * Add more context to error struct
 * Iteration for strings and objects
-* Fix/remove C-style for loop
 * Add enums, potentially structs
-* Switch/match statements
 * Some sort of ternary expression
+
+### Fixes
+* Ref types in expressions
+* `==` operator
 
 ### Tidiness
 * Clean expr parser
@@ -65,7 +67,8 @@ Call core functions using `->`. Example:
 ### String:
 * `len()`: finds length of string in characters (not implemented).
 * `clone()`: copies string into new reference.
-* `concat(x)`: concatenates list onto existing list (more efficient than adding lists together!).
+* `concat(x)`: concatenates string onto existing string (more efficient than adding strings together!).
+* `pop()`: removes character at the end of string.
 * `parse_num()`: tries to convert string into int (if possible) or float.
 
 ### List:
@@ -73,6 +76,7 @@ Call core functions using `->`. Example:
 * `clone()`: copies list into new reference.
 * `append(x)`: adds element to the end of the list.
 * `concat(x)`: adds list onto the end of the list.
+* `pop()`: removed element at the end of the list.
 * `front()`: returns element at the front of the list.
 * `back()`: returns element at the back of the list.
 * `contains(x)`: returns true if item is in the list.

@@ -7,7 +7,7 @@ use ast::*;
 
 use nom::{IResult, Needed, Err, ErrorKind, Context};
 
-type ExprRes<'a> = IResult<&'a [Token], Box<Expr>>;
+type ExprRes<'a> = IResult<&'a [Token], Box<dyn Expr>>;
 
 macro_rules! op_match {
     ($input:ident, $mat:ident, $first:expr, $ast:path) => {
@@ -73,7 +73,7 @@ pub fn p_expr_lalr<'a>(input: &'a [Token]) -> ExprRes<'a> {
     }}
 }
 
-fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
+fn p_op<'a>(first: Box<dyn Expr>, input: &'a [Token]) -> ExprRes<'a> {
     if input.len() < 2 {
         Err(Err::Incomplete(Needed::Size(2)))
     } else { match input[0] {
@@ -99,7 +99,7 @@ fn p_op<'a>(first: Box<Expr>, input: &'a [Token]) -> ExprRes<'a> {
 }
 
 // Assuming input[0] has already been matched as LPar or comma or LSq
-fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<Expr>>, term: Token) -> IResult<&'a [Token], Vec<Box<Expr>>> {
+fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<dyn Expr>>, term: Token) -> IResult<&'a [Token], Vec<Box<dyn Expr>>> {
     if input.len() < 3 {
         Err(Err::Incomplete(Needed::Size(3)))
     } else { match p_expr(&input[1..]) {
@@ -118,7 +118,7 @@ fn p_expr_list<'a>(input: &'a [Token], mut exprs: Vec<Box<Expr>>, term: Token) -
 }
 
 // Assuming input[0] has already been matched as Dot
-fn p_access<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
+fn p_access<'a>(input: &'a [Token], first: Box<dyn Expr>) -> ExprRes<'a> {
     if input.len() < 3 {
         Err(Err::Incomplete(Needed::Size(3)))
     } else { match input[1] {
@@ -128,7 +128,7 @@ fn p_access<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
 }
 
 // Assuming input[0] has already been matched as Arrow
-fn p_core_func<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
+fn p_core_func<'a>(input: &'a [Token], first: Box<dyn Expr>) -> ExprRes<'a> {
     if input.len() < 5 {
         Err(Err::Incomplete(Needed::Size(5)))
     } else { match (&input[1], &input[2], &input[3]) {
@@ -141,7 +141,7 @@ fn p_core_func<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     }}
 }
 
-fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
+fn p_post_op<'a>(input: &'a [Token], first: Box<dyn Expr>) -> ExprRes<'a> {
     if input.len() < 1 {
         Err(Err::Incomplete(Needed::Size(1)))
     } else { match input[0] {
@@ -175,8 +175,8 @@ fn p_post_op<'a>(input: &'a [Token], first: Box<Expr>) -> ExprRes<'a> {
     }}
 }
 
-fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprRes<'a> {
-    fn p_obj_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<Expr>)> {
+fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<dyn Expr>)>) -> ExprRes<'a> {
+    fn p_obj_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (String, Box<dyn Expr>)> {
         if input.len() < 3 {
             Err(Err::Incomplete(Needed::Size(3)))
         } else { match (&input[0],input[1] == split) {
@@ -208,8 +208,8 @@ fn p_object<'a>(input: &'a[Token], mut items: Vec<(String, Box<Expr>)>) -> ExprR
     }}
 }
 
-fn p_hashmap<'a>(input: &'a[Token], mut items: Vec<(Box<Expr>, Box<Expr>)>) -> ExprRes<'a> {
-    fn p_map_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (Box<Expr>, Box<Expr>)> {
+fn p_hashmap<'a>(input: &'a[Token], mut items: Vec<(Box<dyn Expr>, Box<dyn Expr>)>) -> ExprRes<'a> {
+    fn p_map_pair<'a>(input: &'a[Token], split: Token) -> IResult<&'a [Token], (Box<dyn Expr>, Box<dyn Expr>)> {
         if input.len() < 5 {
             Err(Err::Incomplete(Needed::Size(5)))
         } else if input[0] == Token::LSq { match p_expr(&input[1..]) {

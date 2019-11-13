@@ -3,54 +3,54 @@ use runtime::{Value, VType, Scope, Signal, FuncMap, equal};
 use error::{Error, Type, RunCode};
 
 pub struct ScopeStat {
-    code: Vec<Box<Statement>>,
+    code: Vec<Box<dyn Statement>>,
 }
 
 pub struct VarDecl {
     name: String,
-    assign: Option<Box<Expr>>,
+    assign: Option<Box<dyn Expr>>,
 }
 
 pub struct AssignStat {
     name: String,
-    assign: Box<Expr>,
-    child_op: Option<Box<Assign>>,
+    assign: Box<dyn Expr>,
+    child_op: Option<Box<dyn Assign>>,
 }
 
 pub struct ExprStat {
-    expr: Box<Expr>,
+    expr: Box<dyn Expr>,
 }
 
 pub struct IfStat {
-    cond: Box<Expr>,
-    then_stat: Box<Statement>,
-    else_stat: Option<Box<Statement>>,
+    cond: Box<dyn Expr>,
+    then_stat: Box<dyn Statement>,
+    else_stat: Option<Box<dyn Statement>>,
 }
 
 pub enum CaseType {
     Var(String),
-    Value(Box<Expr>),
+    Value(Box<dyn Expr>),
 }
 
 pub struct MatchStat {
-    cond: Box<Expr>,
-    cases: Vec<(CaseType, Box<Statement>)>,
-    otherwise: Option<Box<Statement>>
+    cond: Box<dyn Expr>,
+    cases: Vec<(CaseType, Box<dyn Statement>)>,
+    otherwise: Option<Box<dyn Statement>>
 }
 
 pub struct WhileStat {
-    cond: Box<Expr>,
-    loop_body: Box<Statement>,
+    cond: Box<dyn Expr>,
+    loop_body: Box<dyn Statement>,
 }
 
 pub struct ForStat {
     e_name: String,
-    list: Box<Expr>,
-    loop_body: Box<Statement>,
+    list: Box<dyn Expr>,
+    loop_body: Box<dyn Statement>,
 }
 
 pub struct ReturnStat {
-    expr: Option<Box<Expr>>,
+    expr: Option<Box<dyn Expr>>,
 }
 
 pub struct ContinueStat {}
@@ -61,7 +61,7 @@ pub struct BreakStat {}
 // IMPLS
 
 impl ScopeStat {
-    pub fn new(c: Vec<Box<Statement>>) -> Self {
+    pub fn new(c: Vec<Box<dyn Statement>>) -> Self {
         ScopeStat {
             code: c,
         }
@@ -92,7 +92,7 @@ impl Statement for ScopeStat {
 
 
 impl VarDecl {
-    pub fn new(n: &str, a: Option<Box<Expr>>) -> Self {
+    pub fn new(n: &str, a: Option<Box<dyn Expr>>) -> Self {
         VarDecl {
             name: n.to_string(),
             assign: a,
@@ -122,7 +122,7 @@ impl Statement for VarDecl {
 
 
 impl AssignStat {
-    pub fn new(n: &str, a: Box<Expr>, c: Option<Box<Assign>>) -> Self {
+    pub fn new(n: &str, a: Box<dyn Expr>, c: Option<Box<dyn Assign>>) -> Self {
         AssignStat {
             name: n.to_string(),
             assign: a,
@@ -158,7 +158,7 @@ impl Statement for AssignStat {
 
 
 impl ExprStat {
-    pub fn new(e: Box<Expr>) -> Self {
+    pub fn new(e: Box<dyn Expr>) -> Self {
         ExprStat {
             expr: e,
         }
@@ -182,7 +182,7 @@ impl Statement for ExprStat {
 
 
 impl IfStat {
-    pub fn new(c: Box<Expr>, i: Box<Statement>, e: Option<Box<Statement>>) -> Self {
+    pub fn new(c: Box<dyn Expr>, i: Box<dyn Statement>, e: Option<Box<dyn Statement>>) -> Self {
         IfStat {
             cond: c,
             then_stat: i,
@@ -220,7 +220,7 @@ impl Statement for IfStat {
 
 
 impl MatchStat {
-    pub fn new(m: Box<Expr>, c: Vec<(CaseType, Box<Statement>)>, o: Option<Box<Statement>>) -> Self {
+    pub fn new(m: Box<dyn Expr>, c: Vec<(CaseType, Box<dyn Statement>)>, o: Option<Box<dyn Statement>>) -> Self {
         MatchStat {
             cond: m,
             cases: c,
@@ -274,7 +274,7 @@ impl Statement for MatchStat {
 
 
 impl WhileStat {
-    pub fn new(c: Box<Expr>, b: Box<Statement>) -> Self {
+    pub fn new(c: Box<dyn Expr>, b: Box<dyn Statement>) -> Self {
         WhileStat {
             cond: c,
             loop_body: b,
@@ -315,7 +315,7 @@ impl Statement for WhileStat {
 
 
 impl ForStat {
-    pub fn new(e: String, l: Box<Expr>, b: Box<Statement>) -> Self {
+    pub fn new(e: String, l: Box<dyn Expr>, b: Box<dyn Statement>) -> Self {
         ForStat {
             e_name: e,
             list: l,
@@ -382,7 +382,7 @@ impl Statement for ForStat {
 
 
 impl ReturnStat {
-    pub fn new(e: Option<Box<Expr>>) -> Self {
+    pub fn new(e: Option<Box<dyn Expr>>) -> Self {
         ReturnStat {
             expr: e,
         }

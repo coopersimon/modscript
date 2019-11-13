@@ -48,7 +48,7 @@ pub enum Type {
     CompileTime(CompileCode),
     RunTime(RunCode),
     Critical(CriticalCode),
-    Package(Box<CustomError>)
+    Package(Box<dyn CustomError>)
 }
 
 #[derive(Debug)]

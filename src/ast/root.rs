@@ -7,11 +7,11 @@ use std::{cmp, fmt};
 
 // AST entry point for statement snippet
 pub struct Script {
-    stat: Box<Statement>,
+    stat: Box<dyn Statement>,
 }
 
 impl Script {
-    pub fn new(s: Box<Statement>) -> Self {
+    pub fn new(s: Box<dyn Statement>) -> Self {
         Script {
             stat: s,
         }
@@ -31,11 +31,11 @@ impl Script {
 
 // AST entry point for expression snippet
 pub struct ScriptExpr {
-    expr: Option<Box<Expr>>,
+    expr: Option<Box<dyn Expr>>,
 }
 
 impl ScriptExpr {
-    pub fn new(e: Option<Box<Expr>>) -> Self {
+    pub fn new(e: Option<Box<dyn Expr>>) -> Self {
         ScriptExpr {
             expr: e,
         }
@@ -80,11 +80,11 @@ impl ScriptPackage {
 // AST entry point for function
 pub struct FuncRoot {
     arg_names: Vec<String>,
-    stat_list: Vec<Box<Statement>>,
+    stat_list: Vec<Box<dyn Statement>>,
 }
 
 impl FuncRoot {
-    pub fn new(arg_names: Vec<String>, stat_list: Vec<Box<Statement>>) -> Self {
+    pub fn new(arg_names: Vec<String>, stat_list: Vec<Box<dyn Statement>>) -> Self {
         FuncRoot {
             arg_names: arg_names,
             stat_list: stat_list,

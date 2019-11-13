@@ -18,6 +18,7 @@ pub fn core_func_call(func: &str, base_type: Value, args: &[Value]) -> ExprRes {
         "concat"    =>  concat(base_type, args),
         "parse_num" =>  parse_num(base_type, args),
         "append"    =>  append(base_type, args),
+        "pop"       =>  pop(base_type, args),
         "front"     =>  front(base_type, args),
         "back"      =>  back(base_type, args),
         "contains"  =>  contains(base_type, args),
@@ -235,6 +236,26 @@ fn append(base_type: Value, args: &[Value]) -> ExprRes {
 
     match base_type {
         List(ref l) => {l.borrow_mut().push(args[0].clone()); Ok(Null)},
+        _           => mserr(Type::RunTime(RunCode::CoreBaseTypeError)),
+    }
+}
+
+fn pop(base_type: Value, args: &[Value]) -> ExprRes {
+    use Value::*;
+
+    if args.len() != 0 {
+        return mserr(Type::RunTime(RunCode::CoreWrongNumberOfArguments));
+    }
+
+    match base_type {
+        Str(ref s)  => {
+            s.borrow_mut().pop();
+            Ok(Null)
+        },
+        List(ref l) => {
+            l.borrow_mut().pop();
+            Ok(Null)
+        },
         _           => mserr(Type::RunTime(RunCode::CoreBaseTypeError)),
     }
 }

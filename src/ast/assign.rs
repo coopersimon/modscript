@@ -3,19 +3,19 @@ use runtime::{Value, VType, Scope, Signal, FuncMap, hash_value};
 use error::{Error, Type, RunCode};
 
 pub struct IndexAssign {
-    index: Box<Expr>,
-    child_op: Option<Box<Assign>>,
+    index: Box<dyn Expr>,
+    child_op: Option<Box<dyn Assign>>,
 }
 
 pub struct AccessAssign {
     field_name: String,
-    child_op: Option<Box<Assign>>,
+    child_op: Option<Box<dyn Assign>>,
 }
 
 // IMPLS
 
 impl IndexAssign {
-    pub fn new(i: Box<Expr>, c: Option<Box<Assign>>) -> Self {
+    pub fn new(i: Box<dyn Expr>, c: Option<Box<dyn Assign>>) -> Self {
         IndexAssign {
             index: i,
             child_op: c,
@@ -85,7 +85,7 @@ impl Assign for IndexAssign {
 
 
 impl AccessAssign {
-    pub fn new(f: &str, c: Option<Box<Assign>>) -> Self {
+    pub fn new(f: &str, c: Option<Box<dyn Assign>>) -> Self {
         AccessAssign {
             field_name: f.to_string(),
             child_op: c,

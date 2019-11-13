@@ -2,7 +2,7 @@ use super::{Value, ExprRes};
 use error::{mserr, Type, RunCode};
 use std::collections::HashMap;
 
-pub type PackageRoot = Box<Fn(&str, &[Value], &FuncMap) -> ExprRes>;
+pub type PackageRoot = Box<dyn Fn(&str, &[Value], &FuncMap) -> ExprRes>;
 
 pub struct FuncMap {
     packages: HashMap<String, PackageRoot>,
