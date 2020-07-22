@@ -129,51 +129,53 @@ impl fmt::Display for VType {
     }
 }
 
-pub fn equal(l: &Value, r: &Value) -> Option<bool> {
-    use self::Value::*;
-    use self::VType::*;
+impl Value {
+    pub fn equal_to(&self, other: &Value) -> Option<bool> {
+        use self::Value::*;
+        use self::VType::*;
 
-    fn equal_vtype(l: &VType, r: &VType) -> Option<bool> {
-        match (l,r) {
-            (I(x),I(y)) => Some(x == y),
-            (F(x),F(y)) => Some(x == y),
-            (B(x),B(y)) => Some(x == y),
-            (_,_)       => None,
+        fn equal_vtype(l: &VType, r: &VType) -> Option<bool> {
+            match (l,r) {
+                (I(x),I(y)) => Some(x == y),
+                (F(x),F(y)) => Some(x == y),
+                (B(x),B(y)) => Some(x == y),
+                (_,_)       => None,
+            }
         }
-    }
 
-    match (l,r) {
-        (Val(x),Val(y)) => equal_vtype(x,y),
-        (Val(x),Ref(y)) => equal_vtype(x,&y.borrow()),
-        (Ref(x),Val(y)) => equal_vtype(&x.borrow(),y),
-        (Ref(x),Ref(y)) => equal_vtype(&x.borrow(),&y.borrow()),
-        (Str(x),Str(y)) => Some(*x.borrow() == *y.borrow()),
-        (List(x),List(y)) => {
-            if x.borrow().len() != y.borrow().len() {
-                return Some(false);
-            }
-            for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
-                if i != j {
+        match (self, other) {
+            (Val(x),Val(y)) => equal_vtype(x, y),
+            (Val(x),Ref(y)) => equal_vtype(x, &y.borrow()),
+            (Ref(x),Val(y)) => equal_vtype(&x.borrow(), y),
+            (Ref(x),Ref(y)) => equal_vtype(&x.borrow(), &y.borrow()),
+            (Str(x),Str(y)) => Some(*x.borrow() == *y.borrow()),
+            (List(x),List(y)) => {
+                if x.borrow().len() != y.borrow().len() {
                     return Some(false);
                 }
-            }
-            Some(true)
-        },
-        (Obj(x),Obj(y)) => {
-            if x.borrow().len() != y.borrow().len() {
-                return Some(false);
-            }
-            for ((fa,va),(fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
-                if (fa != fb) || (va != vb) {
+                for (i,j) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if i != j {
+                        return Some(false);
+                    }
+                }
+                Some(true)
+            },
+            (Obj(x),Obj(y)) => {
+                if x.borrow().len() != y.borrow().len() {
                     return Some(false);
                 }
-            }
-            Some(true)
-        },
-        (Null,Null) => Some(true),
-        // map
-        // Null?
-        (_,_) => None,
+                for ((fa,va), (fb,vb)) in x.borrow().iter().zip(y.borrow().iter()) {
+                    if (fa != fb) || (va != vb) {
+                        return Some(false);
+                    }
+                }
+                Some(true)
+            },
+            (Null,Null) => Some(true),
+            // map
+            // Null?
+            (_,_) => None,
+        }
     }
 }
 

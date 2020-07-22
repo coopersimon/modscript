@@ -5,6 +5,13 @@ pub fn mserr(code: Type) -> Result<Value, Error> {
     Err(Error::new(code))
 }
 
+/*#[macro_export]
+macro_rules! mserr {
+    (runtime $code:tt) => {
+        Err(Error::new(Type::RunTime(RunCode::$code)))
+    };
+}*/
+
 pub struct Error {
     err_code: Type,
     // line

@@ -20,6 +20,7 @@ Call core functions using `->`. Example:
 * Iteration for strings and objects
 * Add enums, potentially structs
 * Some sort of ternary expression
+* Rewrite parser!
 
 ### Fixes
 * Ref types in expressions

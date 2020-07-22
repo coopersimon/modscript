@@ -1,5 +1,5 @@
 use super::{Expr, AstNode, FuncRoot};
-use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call, hash_value, equal};
+use runtime::{Value, VType, Scope, ExprRes, FuncMap, core_func_call, hash_value};
 use error::{mserr, Type, RunCode, Error};
 
 use std::rc::Rc;
@@ -759,7 +759,7 @@ impl Expr for TrueEqExpr {
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
-        match equal(&a, &b) {
+        match a.equal_to(&b) {
             Some(res) => Ok(Value::Val(VType::B(res))),
             None      => mserr(Type::RunTime(RunCode::TypeError)),
         }
@@ -787,7 +787,7 @@ impl Expr for TrueNEqExpr {
         let a = self.left.eval(state, f)?;
         let b = self.right.eval(state, f)?;
 
-        match equal(&a, &b) {
+        match a.equal_to(&b) {
             Some(res) => Ok(Value::Val(VType::B(!res))),
             None      => mserr(Type::RunTime(RunCode::TypeError)),
         }

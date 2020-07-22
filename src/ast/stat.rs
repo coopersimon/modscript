@@ -1,5 +1,5 @@
 use super::{AstNode, Statement, Expr, Assign};
-use runtime::{Value, VType, Scope, Signal, FuncMap, equal};
+use runtime::{Value, VType, Scope, Signal, FuncMap};
 use error::{Error, Type, RunCode};
 
 pub struct ScopeStat {
@@ -257,7 +257,7 @@ impl Statement for MatchStat {
                         Err(e) => return Signal::Error(e),
                     };
 
-                    match equal(&c, &val) {
+                    match c.equal_to(&val) {
                         Some(true) => return stat.run(state, f),
                         _ => (),
                     }
